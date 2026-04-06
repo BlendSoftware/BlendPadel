@@ -1,0 +1,3 @@
+ALTER TABLE matchmaking_flares DROP COLUMN IF EXISTS match_type;
+ALTER TABLE matches DROP COLUMN IF EXISTS match_type;
+ALTER TABLE users DROP COLUMN IF EXISTS gender;

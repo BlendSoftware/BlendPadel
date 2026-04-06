@@ -1,0 +1,4 @@
+DROP INDEX IF EXISTS idx_regions_boundary;
+DROP TABLE IF EXISTS regions;
+DROP TABLE IF EXISTS users;
+DROP EXTENSION IF EXISTS postgis;

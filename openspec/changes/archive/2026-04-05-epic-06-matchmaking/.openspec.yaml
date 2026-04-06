@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-06-matchmaking
+created: 2026-04-04
+status: proposed
+epic: "06"
+stories: [US-033, US-034, US-035]

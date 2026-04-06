@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-00-infraestructura
+created: 2026-04-04
+status: proposed
+epic: "00"
+stories: [US-001, US-002, US-003, US-004, US-005]

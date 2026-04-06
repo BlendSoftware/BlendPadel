@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-11-mobile-scaffolding
+created: 2026-04-05
+status: proposed
+epic: "11"
+stories: [FE-001, FE-002, FE-003, FE-004, FE-005, FE-006]

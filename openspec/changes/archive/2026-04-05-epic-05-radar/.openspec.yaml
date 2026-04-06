@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-05-radar
+created: 2026-04-04
+status: proposed
+epic: "05"
+stories: [US-030, US-031, US-032]

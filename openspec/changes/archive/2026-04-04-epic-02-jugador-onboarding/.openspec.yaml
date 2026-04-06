@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-02-jugador-onboarding
+created: 2026-04-04
+status: proposed
+epic: "02"
+stories: [US-012, US-013, US-014, US-015]

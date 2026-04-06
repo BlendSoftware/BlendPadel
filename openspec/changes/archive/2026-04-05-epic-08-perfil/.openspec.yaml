@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-08-perfil
+created: 2026-04-04
+status: proposed
+epic: "08"
+stories: [US-040, US-041, US-042]

@@ -1,0 +1,19 @@
+change: epic-13-perfil-tab
+title: "Tab 4: Perfil — ELO, Trust, Historial, Preferencias, Perfil Público"
+status: implementing
+sprint: 6
+priority: alta
+dependencies:
+  - epic-12-change-password
+stories:
+  - FE-013  # Mi Perfil
+  - FE-014  # Editar Perfil
+  - FE-015  # Upload de Avatar
+  - FE-016  # Gráfico ELO History
+  - FE-017  # Preferencias de Matchmaking
+  - FE-018  # Perfil Público
+  - FE-019  # Historial de Partidos
+artifacts:
+  - proposal.md
+  - design.md
+  - tasks.md

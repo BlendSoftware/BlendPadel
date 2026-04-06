@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Environment
+.env
+.env.local
+.env.*.local
+serviceAccountKey.json
+
+# Build
+/backend/bin/
+/backend/tmp/
+/admin/dist/
+/app/dist/
+/mobile/.expo/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads (local dev)
+uploads/
+
+# Dev config (per-machine)
+dev.config.json
+
+# Go
+*.exe
+*.test
+*.out
+coverage.out
+coverage.html
+
+# Docker
+.env.docker
+
+# Zone identifiers (WSL)
+*:Zone.Identifier

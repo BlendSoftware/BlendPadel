@@ -1,0 +1,15 @@
+# Development
+:80 {
+	reverse_proxy api:8080
+}
+
+# Production (uncomment and replace domain)
+# api.blendpadel.com {
+#     reverse_proxy api:8080
+# }
+#
+# admin.blendpadel.com {
+#     root * /srv/admin
+#     file_server
+#     try_files {path} /index.html
+# }

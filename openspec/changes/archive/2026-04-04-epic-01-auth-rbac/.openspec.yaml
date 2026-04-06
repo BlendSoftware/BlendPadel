@@ -1,0 +1,7 @@
+schema: spec-driven
+name: epic-01-auth-rbac
+created: 2026-04-04
+status: proposed
+epic: "01"
+stories: [US-006, US-007, US-008, US-009, US-010, US-011]
+skills: [jwt-auth-rbac, go-testing]

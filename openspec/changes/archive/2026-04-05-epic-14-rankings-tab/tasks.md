@@ -1,0 +1,42 @@
+# Tasks — EPIC 14: Rankings Tab
+
+## Implementation Checklist
+
+- [x] Add `Region`, `RankingsResponse`, `MatchProjection` types to `src/types/index.ts`
+- [x] Create `src/stores/rankings-store.ts` with Zustand + persist middleware
+  - [x] `selectedRegionId` persists via `blend-rankings` localStorage key
+  - [x] Individual selectors only — no store destructuring
+  - [x] `fetchRegions()`, `fetchRankings(regionId?, limit?)`, `fetchProjection(teamA, teamB)`, `refresh()`
+- [x] Create `src/features/rankings/SkeletonRow.tsx` — animated loading placeholder
+- [x] Create `src/features/rankings/RankEntry.tsx`
+  - [x] Gold/silver/bronze medals for rank 1/2/3 (emoji)
+  - [x] Current user row: padel-green left border + tinted background
+  - [x] Trust badge (high/medium/low) with ShieldCheck icon
+  - [x] Alternating row colors (bg-bg-dark / bg-bg-card)
+  - [x] ARIA `role="row"`, `aria-current` on own row
+- [x] Create `src/features/rankings/RankingTable.tsx`
+  - [x] Skeleton state (7 rows) while loading + no data
+  - [x] EmptyState when region has no players
+  - [x] Sticky footer row for current user if not in visible top N
+  - [x] "Tu posición" divider label above footer row
+- [x] Create `src/features/rankings/RegionPicker.tsx`
+  - [x] Bottom-sheet modal, no external lib dependency
+  - [x] Backdrop closes on click
+  - [x] Escape key closes
+  - [x] Body scroll locked while open
+  - [x] Check icon on selected region
+  - [x] All touch targets >= 44px
+- [x] Create `src/features/rankings/ProjectionCard.tsx`
+  - [x] `ProjectionCardView` — pure presentational, accepts `MatchProjection` prop
+  - [x] `ProjectionCard` — connected variant, fetches on button press
+  - [x] Win delta: padel-green tint / Loss delta: trust-low (red) tint
+  - [x] Ready for EPIC 16 matchmaking integration
+- [x] Rewrite `src/features/rankings/RankingsPage.tsx`
+  - [x] Region chip in header right slot
+  - [x] Refresh button with spin animation during loading
+  - [x] Error banner with retry action
+  - [x] Initial fetch on mount (fetchRegions + fetchRankings)
+  - [x] `useTransition` for non-blocking refresh
+  - [x] RegionPicker modal wired to store `setRegion`
+- [x] Route `/rankings` already registered in `router.tsx` — no change needed
+- [x] `npx tsc --noEmit` passes with zero errors

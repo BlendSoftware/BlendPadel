@@ -1,0 +1,3 @@
+ALTER TABLE matchmaking_flares DROP COLUMN IF EXISTS venue_id;
+ALTER TABLE matches DROP COLUMN IF EXISTS venue_id;
+DROP TABLE IF EXISTS venues;

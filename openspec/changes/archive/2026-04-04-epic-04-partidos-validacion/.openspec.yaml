@@ -1,0 +1,7 @@
+schema: spec-driven
+name: epic-04-partidos-validacion
+created: 2026-04-04
+status: proposed
+epic: "04"
+stories: [US-023, US-024, US-025, US-026, US-027, US-028, US-029]
+tdd: partial (FSM, cross-validation, auto-seal)

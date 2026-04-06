@@ -1,0 +1,7 @@
+schema: spec-driven
+name: epic-03-motor-elo-trust
+created: 2026-04-04
+status: proposed
+epic: "03"
+stories: [US-016, US-017, US-018, US-019, US-020, US-021, US-022]
+tdd: strict

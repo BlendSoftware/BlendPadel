@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-10-notificaciones
+created: 2026-04-05
+status: proposed
+epic: "10"
+stories: [US-048, US-049, US-050, US-051, US-052]

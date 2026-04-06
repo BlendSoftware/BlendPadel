@@ -1,0 +1,21 @@
+ALTER TABLE users
+    ADD COLUMN IF NOT EXISTS last_name VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326),
+    ADD COLUMN IF NOT EXISTS region_id UUID REFERENCES regions(id),
+    ADD COLUMN IF NOT EXISTS elo INTEGER NOT NULL DEFAULT 1000,
+    ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500),
+    ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN NOT NULL DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS validated_match_count INTEGER NOT NULL DEFAULT 0,
+    ADD COLUMN IF NOT EXISTS elo_frozen BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_users_location ON users USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_users_elo ON users(elo DESC);
+CREATE INDEX IF NOT EXISTS idx_users_region ON users(region_id);
+
+CREATE TABLE onboarding_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID UNIQUE NOT NULL REFERENCES users(id),
+    responses JSONB NOT NULL,
+    calculated_elo INTEGER NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS conduct_reports;
+ALTER TABLE users DROP COLUMN IF EXISTS preferences;
+ALTER TABLE matches DROP COLUMN IF EXISTS region_id;

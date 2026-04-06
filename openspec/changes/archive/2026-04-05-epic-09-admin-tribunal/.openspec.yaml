@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-09-admin-tribunal
+created: 2026-04-05
+status: implemented
+epic: "09"
+stories: [US-043, US-044, US-045, US-046, US-047]

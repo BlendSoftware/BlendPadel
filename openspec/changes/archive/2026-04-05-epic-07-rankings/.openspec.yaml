@@ -1,0 +1,6 @@
+schema: spec-driven
+name: epic-07-rankings
+created: 2026-04-04
+status: proposed
+epic: "07"
+stories: [US-036, US-037, US-038, US-039]
