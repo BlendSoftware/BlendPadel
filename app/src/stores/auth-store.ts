@@ -63,6 +63,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         tokenStore.clearAll()
         cancelProactiveRefresh()
         set({ user: null, isAuthenticated: false, error: null })
+        // Notify other stores to clear stale data (avoids circular imports)
+        window.dispatchEvent(new CustomEvent('auth:user-changed'))
       },
 
       refresh: async () => {

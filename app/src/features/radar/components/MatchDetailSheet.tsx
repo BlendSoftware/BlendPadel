@@ -10,7 +10,7 @@ interface MatchDetailSheetProps {
 
 function formatTime(isoString: string): string {
   const date = new Date(isoString)
-  return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+  return date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })
 }
 
 function formatELO(elo: number): string {

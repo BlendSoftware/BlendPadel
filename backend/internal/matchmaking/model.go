@@ -35,6 +35,7 @@ type CreateFlareRequest struct {
 // FlareResponse is the public view of a flare.
 type FlareResponse struct {
 	ID              uuid.UUID  `json:"id"`
+	PlayerID        uuid.UUID  `json:"player_id"`
 	CreatorName     string     `json:"creator_name"`
 	Lat             float64    `json:"lat"`
 	Lng             float64    `json:"lng"`

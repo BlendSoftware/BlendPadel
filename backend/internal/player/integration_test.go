@@ -196,6 +196,7 @@ func TestIntegration_Player_Onboarding_Success(t *testing.T) {
 		Tournaments:    player.TournamentsAmateur,
 		PaddleType:     player.PaddleIntermedia,
 		SelfAssessment: player.SelfIntermedio,
+		Gender:         "male",
 	})
 	body := readBody(t, resp)
 
@@ -228,6 +229,7 @@ func TestIntegration_Player_Onboarding_AlreadyCompleted_Returns409(t *testing.T)
 		Tournaments:    player.TournamentsNunca,
 		PaddleType:     player.PaddleIntermedia,
 		SelfAssessment: player.SelfIntermedio,
+		Gender:         "male",
 	}
 
 	// First completion.
@@ -247,10 +249,11 @@ func TestIntegration_Player_UpdateProfile_ValidMendoza_Returns200(t *testing.T) 
 	env := setupPlayerTestEnv(t)
 
 	// Rivadavia, Mendoza: lat=-33.35, lng=-68.33 (within bounds)
+	lat, lng := -33.35, -68.33
 	resp := authedPut(t, env.server.URL+"/players/me", env.accessToken, player.UpdateProfileRequest{
 		LastName:  "Gonzalez",
-		Latitude:  -33.35,
-		Longitude: -68.33,
+		Latitude:  &lat,
+		Longitude: &lng,
 	})
 	body := readBody(t, resp)
 
@@ -263,10 +266,11 @@ func TestIntegration_Player_UpdateProfile_OutsideMendoza_Returns422(t *testing.T
 	env := setupPlayerTestEnv(t)
 
 	// Buenos Aires coordinates: outside Mendoza bounds.
+	latBA, lngBA := -34.60, -58.38 // Buenos Aires — outside Mendoza bounds
 	resp := authedPut(t, env.server.URL+"/players/me", env.accessToken, player.UpdateProfileRequest{
 		LastName:  "Garcia",
-		Latitude:  -34.60, // valid lat but...
-		Longitude: -58.38, // lng outside [-70.5, -67.5]
+		Latitude:  &latBA,
+		Longitude: &lngBA,
 	})
 	body := readBody(t, resp)
 

@@ -79,6 +79,60 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Creat
 	return i, err
 }
 
+const getActiveMatchesByPlayer = `-- name: GetActiveMatchesByPlayer :many
+SELECT m.id, m.status, m.scheduled_at, m.captain_a_id, m.captain_b_id, m.avg_elo, m.match_type, m.venue_id, m.sealed_by, m.created_at, m.updated_at
+FROM matches m
+JOIN match_players mp ON mp.match_id = m.id
+WHERE mp.player_id = $1 AND m.status != 'sealed' AND m.status != 'cancelled'
+ORDER BY m.scheduled_at ASC
+`
+
+type GetActiveMatchesByPlayerRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	Status      string             `json:"status"`
+	ScheduledAt pgtype.Timestamptz `json:"scheduled_at"`
+	CaptainAID  pgtype.UUID        `json:"captain_a_id"`
+	CaptainBID  pgtype.UUID        `json:"captain_b_id"`
+	AvgElo      pgtype.Int4        `json:"avg_elo"`
+	MatchType   string             `json:"match_type"`
+	VenueID     pgtype.UUID        `json:"venue_id"`
+	SealedBy    pgtype.Text        `json:"sealed_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) GetActiveMatchesByPlayer(ctx context.Context, playerID pgtype.UUID) ([]GetActiveMatchesByPlayerRow, error) {
+	rows, err := q.db.Query(ctx, getActiveMatchesByPlayer, playerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetActiveMatchesByPlayerRow{}
+	for rows.Next() {
+		var i GetActiveMatchesByPlayerRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.ScheduledAt,
+			&i.CaptainAID,
+			&i.CaptainBID,
+			&i.AvgElo,
+			&i.MatchType,
+			&i.VenueID,
+			&i.SealedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMatchByID = `-- name: GetMatchByID :one
 SELECT id, status, scheduled_at, captain_a_id, captain_b_id, avg_elo, match_type, venue_id, sealed_by, created_at, updated_at
 FROM matches

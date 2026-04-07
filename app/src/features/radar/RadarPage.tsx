@@ -1,84 +1,41 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { RefreshCw, Zap } from 'lucide-react'
+import { MapPin, List, Map } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 
 import { Header } from '@/components/layout/Header'
 import { Spinner } from '@/components/ui/Spinner'
+import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 
-import { AlertBanner } from './components/AlertBanner'
-import { RadarMap } from './components/RadarMap'
-import { ELOFilterPanel } from './components/ELOFilterPanel'
-import { MatchDetailSheet } from './components/MatchDetailSheet'
-import { RadarEmptyState } from './components/RadarEmptyState'
-import { LocationDeniedScreen } from './components/LocationDeniedScreen'
+import { CourtsMap } from './components/CourtsMap'
 
 import { useRadarStore } from '@/stores/radar-store'
-import type { RadarMatch, RadarAlert, UserLocation, RadiusOption } from '@/types/radar'
+import type { UserLocation, PadelCourt } from '@/types/radar'
 
-// ─── Auto-refresh interval ────────────────────────────────────────────────────
-const REFRESH_INTERVAL_MS = 30_000
 // Mendoza default
 const MENDOZA: UserLocation = { lat: -33.35, lng: -68.33 }
-
-// ─── Individual selectors (CRITICAL: never destructure store) ─────────────────
-const selectMatches = (s: ReturnType<typeof useRadarStore.getState>) => s.matches
-const selectAlerts = (s: ReturnType<typeof useRadarStore.getState>) => s.alerts
-const selectUserLocation = (s: ReturnType<typeof useRadarStore.getState>) => s.userLocation
-const selectEloRange = (s: ReturnType<typeof useRadarStore.getState>) => s.eloRange
-const selectRadiusKm = (s: ReturnType<typeof useRadarStore.getState>) => s.radiusKm
-const selectSelectedMatchId = (s: ReturnType<typeof useRadarStore.getState>) => s.selectedMatchId
-const selectIsLoading = (s: ReturnType<typeof useRadarStore.getState>) => s.isLoading
-const selectError = (s: ReturnType<typeof useRadarStore.getState>) => s.error
-const selectLocationDenied = (s: ReturnType<typeof useRadarStore.getState>) => s.locationDenied
-const selectFetchMatches = (s: ReturnType<typeof useRadarStore.getState>) => s.fetchMatches
-const selectFetchAlerts = (s: ReturnType<typeof useRadarStore.getState>) => s.fetchAlerts
-const selectSetUserLocation = (s: ReturnType<typeof useRadarStore.getState>) => s.setUserLocation
-const selectSetLocationDenied = (s: ReturnType<typeof useRadarStore.getState>) => s.setLocationDenied
-const selectSetELORange = (s: ReturnType<typeof useRadarStore.getState>) => s.setELORange
-const selectSetRadiusKm = (s: ReturnType<typeof useRadarStore.getState>) => s.setRadiusKm
-const selectSelectMatch = (s: ReturnType<typeof useRadarStore.getState>) => s.selectMatch
-const selectRefresh = (s: ReturnType<typeof useRadarStore.getState>) => s.refresh
 
 export function RadarPage() {
   const navigate = useNavigate()
 
-  // ── Store selectors ─────────────────────────────────────────────────────────
-  const matches = useRadarStore(selectMatches)
-  const alerts = useRadarStore(selectAlerts)
-  const userLocation = useRadarStore(selectUserLocation)
-  const eloRange = useRadarStore(selectEloRange)
-  const radiusKm = useRadarStore(selectRadiusKm)
-  const selectedMatchId = useRadarStore(selectSelectedMatchId)
-  const isLoading = useRadarStore(selectIsLoading)
-  const error = useRadarStore(selectError)
-  const locationDenied = useRadarStore(selectLocationDenied)
+  const userLocation = useRadarStore((s) => s.userLocation)
+  const locationDenied = useRadarStore((s) => s.locationDenied)
+  const setUserLocation = useRadarStore((s) => s.setUserLocation)
+  const setLocationDenied = useRadarStore((s) => s.setLocationDenied)
 
-  const fetchMatches = useRadarStore(selectFetchMatches)
-  const fetchAlerts = useRadarStore(selectFetchAlerts)
-  const setUserLocation = useRadarStore(selectSetUserLocation)
-  const setLocationDenied = useRadarStore(selectSetLocationDenied)
-  const setELORange = useRadarStore(selectSetELORange)
-  const setRadiusKm = useRadarStore(selectSetRadiusKm)
-  const selectMatch = useRadarStore(selectSelectMatch)
-  const refresh = useRadarStore(selectRefresh)
-
-  // ── Local UI state ──────────────────────────────────────────────────────────
-  const [alertsDismissed, setAlertsDismissed] = useState(false)
   const [geoInitialized, setGeoInitialized] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [view, setView] = useState<'map' | 'list'>('map')
+  const [courts, setCourts] = useState<PadelCourt[]>([])
+  const [courtsLoading, setCourtsLoading] = useState(false)
 
-  // ── Geolocation on mount ────────────────────────────────────────────────────
+  // ── Geolocation on mount ──────────────────────────────────────────────────
   useEffect(() => {
     if (geoInitialized) return
     setGeoInitialized(true)
 
     if (!navigator.geolocation) {
-      // Geolocation not supported — use stored or default
-      if (!userLocation) {
-        setUserLocation(MENDOZA)
-      }
+      if (!userLocation) setUserLocation(MENDOZA)
       return
     }
 
@@ -88,100 +45,105 @@ export function RadarPage() {
         setLocationDenied(false)
       },
       () => {
-        // Permission denied or error
-        if (!userLocation) {
-          // No cached location — show denied screen
-          setLocationDenied(true)
-        }
-        // If we have a cached location, keep using it silently
+        if (!userLocation) setLocationDenied(true)
       },
       { timeout: 8000, maximumAge: 60_000 },
     )
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Initial fetch when location becomes available ────────────────────────────
+  // Stable primitives
+  const lat = userLocation?.lat
+  const lng = userLocation?.lng
+
+  // ── Fetch courts from Overpass API (cached 30 min in localStorage) ──────
   useEffect(() => {
-    if (!userLocation) return
-    refresh()
-  }, [userLocation]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (lat == null || lng == null) return
 
-  // ── Re-fetch when filters change ────────────────────────────────────────────
-  useEffect(() => {
-    if (!userLocation) return
-    fetchMatches()
-  }, [eloRange.min, eloRange.max, radiusKm]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Check cache — reuse if same area and < 30 min old
+    const cacheKey = `blend-courts-${lat.toFixed(1)},${lng.toFixed(1)}`
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        const { data, ts } = JSON.parse(cached)
+        if (Date.now() - ts < 30 * 60 * 1000) {
+          setCourts(data)
+          setCourtsLoading(false)
+          return
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
 
-  // ── Auto-refresh every 30s ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (!userLocation) return
-    if (intervalRef.current) clearInterval(intervalRef.current)
-    intervalRef.current = setInterval(() => {
-      refresh()
-    }, REFRESH_INTERVAL_MS)
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current)
-    }
-  }, [userLocation]) // eslint-disable-line react-hooks/exhaustive-deps
+    setCourtsLoading(true)
 
-  // ── Derived ─────────────────────────────────────────────────────────────────
-  const selectedMatch = matches.find((m) => m.id === selectedMatchId) ?? null
-  const visibleAlerts = alertsDismissed ? [] : alerts.slice(0, 5)
+    const radius = 20000
+    const query = `[out:json][timeout:15];(node["sport"="padel"](around:${radius},${lat},${lng});way["sport"="padel"](around:${radius},${lat},${lng});node["sport"="paddle"](around:${radius},${lat},${lng});way["sport"="paddle"](around:${radius},${lat},${lng});node["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng});way["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng}););out center;`
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
-  function handleMarkerClick(match: RadarMatch) {
-    selectMatch(match.id)
-  }
+    fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      body: `data=${encodeURIComponent(query)}`,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+      .then((r) => {
+        if (!r.ok) throw new Error(`Overpass HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data) => {
+        const seen = new Set<number>()
+        const results: PadelCourt[] = (data.elements ?? [])
+          .filter((el: any) => {
+            if ((el.lat ?? el.center?.lat) == null) return false
+            if (seen.has(el.id)) return false
+            seen.add(el.id)
+            return true
+          })
+          .map((el: any) => ({
+            id: el.id,
+            name: el.tags?.name || 'Cancha de pádel',
+            lat: el.lat ?? el.center?.lat,
+            lng: el.lon ?? el.center?.lon,
+          }))
+        setCourts(results)
+        setCourtsLoading(false)
+        // Cache for 30 min
+        try { localStorage.setItem(cacheKey, JSON.stringify({ data: results, ts: Date.now() })) } catch {}
+      })
+      .catch((err) => {
+        console.warn('Overpass API error:', err)
+        setCourtsLoading(false)
+      })
+  }, [lat, lng])
 
-  function handleSheetClose() {
-    selectMatch(null)
-  }
-
-  function handleAlertClick(alert: RadarAlert) {
-    const match = matches.find((m) => m.id === alert.match_id)
-    if (match) selectMatch(match.id)
-  }
-
-  function handleSearchHere(loc: UserLocation) {
-    setUserLocation(loc)
-    fetchMatches()
-    fetchAlerts()
-  }
-
-  function handleExpandRadius() {
-    const options: RadiusOption[] = [5, 10, 15, 25]
-    const currentIdx = options.indexOf(radiusKm)
-    const nextRadius = options[Math.min(currentIdx + 1, options.length - 1)]
-    setRadiusKm(nextRadius)
-  }
-
+  // ── Handlers ───────────��──────────────────────────────────────────────────
   function handleUseMendoza() {
     setUserLocation(MENDOZA)
     setLocationDenied(false)
   }
 
-  function handleLocationSet(loc: UserLocation) {
-    setUserLocation(loc)
-    setLocationDenied(false)
-  }
-
-  // ── Render: location denied ──────────────────────────────────────────────────
+  // ── Render: location denied ──────────���────────────────────────────────────
   if (locationDenied && !userLocation) {
     return (
       <div className="flex flex-col min-h-full">
-        <Header title="Radar" />
-        <LocationDeniedScreen
-          onLocationSet={handleLocationSet}
-          onUseMendoza={handleUseMendoza}
-        />
+        <Header title="Canchas" />
+        <div className="flex-1 flex items-center justify-center px-4">
+          <div className="text-center space-y-4">
+            <MapPin size={48} className="mx-auto text-text-secondary" />
+            <p className="text-text-secondary text-sm">
+              Necesitamos tu ubicación para mostrar canchas cercanas
+            </p>
+            <Button onClick={handleUseMendoza}>
+              Usar ubicación de Mendoza
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // ── Render: waiting for location ─────────────────────────────────────────────
+  // ── Render: waiting for location ──────────────────────────────────────────
   if (!userLocation) {
     return (
       <div className="flex flex-col min-h-full">
-        <Header title="Radar" />
+        <Header title="Canchas" />
         <div className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-3">
             <Spinner size="lg" />
@@ -194,100 +156,88 @@ export function RadarPage() {
 
   return (
     <div className="flex flex-col min-h-full page-enter">
-      {/* Header */}
       <Header
-        title="Radar"
+        title="Canchas"
         right={
-          <div className="flex items-center gap-1">
-            {/* Manual refresh button */}
-            <button
-              onClick={() => refresh()}
-              disabled={isLoading}
-              className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-padel-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg disabled:opacity-40"
-              aria-label="Actualizar radar"
-            >
-              <RefreshCw
-                size={18}
-                className={isLoading ? 'animate-spin' : ''}
-                aria-hidden="true"
-              />
-            </button>
-            {/* BUG 5 FIX: Create flare button navigates to create-flare */}
-            <button
-              onClick={() => navigate('/matchmaking/create-flare')}
-              className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-padel-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
-              aria-label="Crear desafío"
-            >
-              <Zap size={20} aria-hidden="true" />
-            </button>
-          </div>
+          <button
+            onClick={() => setView(view === 'map' ? 'list' : 'map')}
+            className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-padel-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
+            aria-label={view === 'map' ? 'Ver lista' : 'Ver mapa'}
+          >
+            {view === 'map' ? <List size={20} aria-hidden="true" /> : <Map size={20} aria-hidden="true" />}
+          </button>
         }
       />
 
-      {/* Alert banner */}
-      {visibleAlerts.length > 0 && (
-        <AlertBanner
-          alerts={visibleAlerts}
-          onDismiss={() => setAlertsDismissed(true)}
-          onAlertClick={handleAlertClick}
-        />
-      )}
-
-      {/* Filter panel */}
-      <ELOFilterPanel
-        eloRange={eloRange}
-        radiusKm={radiusKm}
-        onELORangeChange={setELORange}
-        onRadiusChange={setRadiusKm}
-      />
-
-      {/* Map area — fills remaining space */}
-      <div className="flex-1 mx-3 mb-3 relative" style={{ minHeight: '320px' }}>
-        {/* Loading overlay on initial load */}
-        {isLoading && matches.length === 0 && (
-          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-bg-dark/60 rounded-xl">
-            <div className="flex flex-col items-center gap-3">
-              <Spinner size="lg" />
-              <p className="text-text-secondary text-sm">Buscando partidos...</p>
-            </div>
-          </div>
-        )}
-
-        {/* Error banner */}
-        {error && matches.length === 0 && (
-          <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-bg-dark/80 rounded-xl">
-            <div className="flex flex-col items-center gap-3 p-6 text-center">
-              <p className="text-text-secondary text-sm">{error}</p>
-              <Button variant="outline" size="sm" onClick={() => refresh()}>
-                Reintentar
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* The map — always rendered when we have a location */}
-        <RadarMap
-          matches={matches}
-          userLocation={userLocation}
-          onMarkerClick={handleMarkerClick}
-          onSearchHere={handleSearchHere}
-        />
-
-        {/* Empty state overlay — over the map */}
-        {!isLoading && matches.length === 0 && !error && (
-          <div className="absolute inset-0 z-[999] flex items-center justify-center bg-bg-dark/70 rounded-xl backdrop-blur-sm">
-            {/* BUG 5 FIX: onCreateMatch navigates to /matchmaking/new */}
-          <RadarEmptyState
-              radiusKm={radiusKm}
-              onExpandRadius={handleExpandRadius}
-              onCreateMatch={() => navigate('/matchmaking/new')}
-            />
-          </div>
-        )}
+      {/* Courts count */}
+      <div className="px-4 py-2">
+        <p className="text-xs text-text-secondary">
+          {courtsLoading
+            ? 'Buscando canchas cercanas...'
+            : `${courts.length} canchas en 20 km`}
+        </p>
       </div>
 
-      {/* Match detail bottom sheet */}
-      <MatchDetailSheet match={selectedMatch} onClose={handleSheetClose} />
+      {view === 'map' ? (
+        /* Map view — fills remaining space */
+        <div className="flex-1 mx-3 mb-3 relative" style={{ minHeight: '400px' }}>
+          {courtsLoading && courts.length === 0 && (
+            <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-bg-dark/60 rounded-xl">
+              <div className="flex flex-col items-center gap-3">
+                <Spinner size="lg" />
+                <p className="text-text-secondary text-sm">Buscando canchas...</p>
+              </div>
+            </div>
+          )}
+
+          <CourtsMap
+            courts={courts}
+            userLocation={userLocation}
+          />
+
+          {!courtsLoading && courts.length === 0 && (
+            <div className="absolute inset-0 z-[999] flex items-center justify-center bg-bg-dark/70 rounded-xl backdrop-blur-sm">
+              <div className="text-center space-y-3 px-6">
+                <MapPin size={40} className="mx-auto text-text-secondary" />
+                <p className="text-text-primary font-semibold">No encontramos canchas cerca</p>
+                <p className="text-text-secondary text-sm">
+                  Probá ampliando la búsqueda o buscá en otra zona
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        /* List view */
+        <div className="flex-1 px-4 pb-4 space-y-2 overflow-y-auto">
+          {courtsLoading && courts.length === 0 ? (
+            <div className="flex items-center justify-center py-16">
+              <Spinner size="lg" />
+            </div>
+          ) : courts.length === 0 ? (
+            <div className="text-center py-16 space-y-3">
+              <MapPin size={40} className="mx-auto text-text-secondary" />
+              <p className="text-text-primary font-semibold">Sin canchas cercanas</p>
+            </div>
+          ) : (
+            courts.map((court) => (
+              <Card key={court.id}>
+                <div className="flex items-center gap-3">
+                  <div className="shrink-0 w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
+                    <span className="text-lg" aria-hidden="true">🎾</span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-text-primary truncate">{court.name}</p>
+                    <p className="text-xs text-text-secondary">
+                      {court.lat.toFixed(4)}, {court.lng.toFixed(4)}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      )}
     </div>
   )
 }

@@ -15,9 +15,10 @@ import (
 //	POST /matches/{id}/confirm            (authenticated)
 //	POST /matches/{id}/dispute            (authenticated)
 //	POST /matches/{id}/cancel             (authenticated)
-//	GET  /players/{playerID}/matches      (authenticated)
-//	GET  /admin/disputes                  (moderator/superadmin)
-//	POST /admin/disputes/{id}/resolve     (moderator/superadmin)
+//	GET  /players/{playerID}/matches        (authenticated)
+//	GET  /players/{playerID}/matches/active (authenticated)
+//	GET  /admin/disputes                    (moderator/superadmin)
+//	POST /admin/disputes/{id}/resolve       (moderator/superadmin)
 func RegisterRoutes(r chi.Router, h *Handler, authMw func(http.Handler) http.Handler) {
 	// Authenticated routes.
 	r.Group(func(r chi.Router) {
@@ -29,6 +30,7 @@ func RegisterRoutes(r chi.Router, h *Handler, authMw func(http.Handler) http.Han
 		r.Post("/matches/{id}/dispute", h.DisputeMatch)
 		r.Post("/matches/{id}/cancel", h.CancelMatch)
 
+		r.Get("/players/{playerID}/matches/active", h.GetActiveMatches)
 		r.Get("/players/{playerID}/matches", h.GetMatchHistory)
 	})
 

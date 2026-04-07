@@ -35,6 +35,21 @@ func NewService(repo Repository, matchSvc MatchCreator, pool *pgxpool.Pool) *Ser
 	}
 }
 
+// GetMyActiveFlare returns the caller's active flare without location/ELO filters.
+func (s *Service) GetMyActiveFlare(ctx context.Context, playerID uuid.UUID) (*FlareResponse, error) {
+	row, err := s.repo.GetActiveFlareByPlayer(ctx, playerID)
+	if err != nil {
+		return nil, fmt.Errorf("get active flare: %w", err)
+	}
+	if row == nil {
+		return nil, nil
+	}
+
+	// Extract lat/lng from the stored geography
+	resp := flareRowToResponse(row, "", 0)
+	return resp, nil
+}
+
 // CreateFlare creates a new flare for the given player.
 func (s *Service) CreateFlare(ctx context.Context, playerID uuid.UUID, req CreateFlareRequest) (*FlareResponse, error) {
 	// Apply defaults.
@@ -271,6 +286,7 @@ func (s *Service) ExpireFlares(ctx context.Context) (int64, error) {
 func flareRowToResponse(row *FlareRow, creatorName string, distanceMeters float64) *FlareResponse {
 	resp := &FlareResponse{
 		ID:             row.ID,
+		PlayerID:       row.PlayerID,
 		CreatorName:    creatorName,
 		Lat:            row.Lat,
 		Lng:            row.Lng,

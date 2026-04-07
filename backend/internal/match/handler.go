@@ -124,6 +124,29 @@ func (h *Handler) DisputeMatch(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]string{"status": "disputed"})
 }
 
+// GetActiveMatches handles GET /players/{playerID}/matches/active.
+func (h *Handler) GetActiveMatches(w http.ResponseWriter, r *http.Request) {
+	_, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Problem(w, http.StatusUnauthorized, "Unauthorized", "missing authentication")
+		return
+	}
+
+	playerID, err := uuid.Parse(chi.URLParam(r, "playerID"))
+	if err != nil {
+		response.Problem(w, http.StatusBadRequest, "Bad Request", "invalid player id")
+		return
+	}
+
+	items, err := h.svc.GetActiveMatches(r.Context(), playerID)
+	if err != nil {
+		mapError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, items)
+}
+
 // GetMatchHistory handles GET /players/{playerID}/matches.
 func (h *Handler) GetMatchHistory(w http.ResponseWriter, r *http.Request) {
 	_, ok := auth.GetUserID(r.Context())

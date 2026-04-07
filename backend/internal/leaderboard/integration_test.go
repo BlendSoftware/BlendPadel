@@ -121,7 +121,7 @@ func TestGetRanking_OrderByELODesc(t *testing.T) {
 	p3 := createActivePlayer(t, ctx, pool, q, "p3@test.com", 1000, regionID)
 
 	svc, _ := newService(q)
-	page, err := svc.GetRanking(ctx, p1, &regionID, 50, 0)
+	page, err := svc.GetRanking(ctx, p1, &regionID, "", 50, 0)
 	require.NoError(t, err)
 
 	require.Len(t, page.Entries, 3)
@@ -144,7 +144,7 @@ func TestGetRanking_RegionFilter(t *testing.T) {
 	_ = createActivePlayer(t, ctx, pool, q, "pb1@test.com", 1600, regionB)
 
 	svc, _ := newService(q)
-	page, err := svc.GetRanking(ctx, p1, &regionA, 50, 0)
+	page, err := svc.GetRanking(ctx, p1, &regionA, "", 50, 0)
 	require.NoError(t, err)
 
 	require.Len(t, page.Entries, 1, "only region A players should appear")
@@ -160,7 +160,7 @@ func TestGetRanking_ExcludesInactivePlayers(t *testing.T) {
 	_ = createInactivePlayer(t, ctx, pool, q, "inactive@test.com", 1500, regionID)
 
 	svc, _ := newService(q)
-	page, err := svc.GetRanking(ctx, p1, &regionID, 50, 0)
+	page, err := svc.GetRanking(ctx, p1, &regionID, "", 50, 0)
 	require.NoError(t, err)
 
 	require.Len(t, page.Entries, 1, "inactive player should be excluded")

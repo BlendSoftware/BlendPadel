@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { MapPin, Users, Trophy, Zap, User } from 'lucide-react'
 
 const tabs = [
-  { to: '/radar', icon: MapPin, label: 'Radar' },
+  { to: '/radar', icon: MapPin, label: 'Canchas' },
   { to: '/matchmaking', icon: Users, label: 'Partidos' },
   { to: '/rankings', icon: Trophy, label: 'Rankings' },
   { to: '/feed', icon: Zap, label: 'Feed' },

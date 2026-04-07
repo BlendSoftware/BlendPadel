@@ -1,17 +1,38 @@
 import { TrendingUp, TrendingDown, Zap } from 'lucide-react'
-import { Spinner } from '@/components/ui/Spinner'
-import { useRankingsStore } from '@/stores/rankings-store'
-import type { MatchProjection } from '@/types'
 
-// ─── Presentational variant ───────────────────────────────────────────────────
+// ─── ELO projection calculation (client-side) ────────────────────────────────
 
-interface ProjectionCardViewProps {
-  projection: MatchProjection
+// Standard ELO expected score
+function expectedScore(ratingA: number, ratingB: number): number {
+  return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400))
+}
+
+// K-factor for padel (same as backend)
+const K_FACTOR = 32
+
+function calculateProjection(teamAElos: number[], teamBElos: number[]): { win_delta: number; loss_delta: number } {
+  const avgA = teamAElos.reduce((s, e) => s + e, 0) / teamAElos.length
+  const avgB = teamBElos.reduce((s, e) => s + e, 0) / teamBElos.length
+
+  const expected = expectedScore(avgA, avgB)
+  const winDelta = Math.round(K_FACTOR * (1 - expected))
+  const lossDelta = Math.round(K_FACTOR * (0 - expected))
+
+  return { win_delta: winDelta, loss_delta: lossDelta }
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+interface ProjectionCardProps {
+  teamA: number[]
+  teamB: number[]
   className?: string
 }
 
-export function ProjectionCardView({ projection, className = '' }: ProjectionCardViewProps) {
-  const { win_delta, loss_delta } = projection
+export function ProjectionCard({ teamA, teamB, className = '' }: ProjectionCardProps) {
+  if (teamA.length === 0 || teamB.length === 0) return null
+
+  const { win_delta, loss_delta } = calculateProjection(teamA, teamB)
 
   return (
     <div
@@ -50,56 +71,4 @@ export function ProjectionCardView({ projection, className = '' }: ProjectionCar
       </div>
     </div>
   )
-}
-
-// ─── Connected variant (fetches on demand) ────────────────────────────────────
-
-interface ProjectionCardProps {
-  teamA: number[]
-  teamB: number[]
-  className?: string
-}
-
-export function ProjectionCard({ teamA, teamB, className = '' }: ProjectionCardProps) {
-  const projection = useRankingsStore((s) => s.projection)
-  const projectionLoading = useRankingsStore((s) => s.projectionLoading)
-  const fetchProjection = useRankingsStore((s) => s.fetchProjection)
-
-  // Fetch when component mounts with valid team data
-  const hasValidTeams = teamA.length > 0 && teamB.length > 0
-
-  if (!hasValidTeams) return null
-
-  if (projectionLoading) {
-    return (
-      <div
-        className={[
-          'rounded-xl border border-border bg-bg-card p-4 flex items-center justify-center min-h-[100px]',
-          className,
-        ].join(' ')}
-        aria-label="Calculando proyección..."
-      >
-        <Spinner size="sm" />
-      </div>
-    )
-  }
-
-  if (!projection) {
-    return (
-      <button
-        onClick={() => void fetchProjection(teamA, teamB)}
-        className={[
-          'w-full rounded-xl border border-border bg-bg-card p-4 text-center min-h-11',
-          'text-sm text-text-secondary hover:text-padel-green hover:border-padel-green/40 transition-colors',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green',
-          className,
-        ].join(' ')}
-      >
-        <Zap size={14} className="inline mr-1.5" aria-hidden="true" />
-        Ver proyección de puntos ELO
-      </button>
-    )
-  }
-
-  return <ProjectionCardView projection={projection} className={className} />
 }

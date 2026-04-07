@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Zap, Activity } from 'lucide-react'
 import { useFeedStore } from '@/stores/feed-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { useRankingsStore } from '@/stores/rankings-store'
 import { Header } from '@/components/layout/Header'
 import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
@@ -58,7 +59,10 @@ function eventIcon(type: FeedItem['event_type']): string {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function FeedPage() {
-  const regionId = useAuthStore((s) => s.user?.region_id)
+  const userRegionId = useAuthStore((s) => s.user?.region_id)
+  const selectedRegionId = useRankingsStore((s) => s.selectedRegionId)
+  // Fallback: use rankings selected region if user has no region_id
+  const regionId = userRegionId ?? selectedRegionId
 
   const items = useFeedStore((s) => s.items)
   const isLoading = useFeedStore((s) => s.isLoading)
@@ -75,7 +79,7 @@ export function FeedPage() {
 
   return (
     <div className="flex flex-col min-h-full page-enter">
-      <Header title="Actividad" />
+      <Header title="Feed" />
 
       <div className="px-4 pt-4 pb-6 space-y-3">
         {/* Loading */}

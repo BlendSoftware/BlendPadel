@@ -36,6 +36,9 @@ type Repository interface {
 	// GetMatchHistory returns sealed matches for a player with pagination.
 	GetMatchHistory(ctx context.Context, playerID uuid.UUID, limit, offset int) ([]MatchHistoryItem, error)
 
+	// GetActiveMatches returns non-sealed, non-cancelled matches for a player.
+	GetActiveMatches(ctx context.Context, playerID uuid.UUID) ([]MatchHistoryItem, error)
+
 	// CreateDispute creates a new dispute record and returns it.
 	CreateDispute(ctx context.Context, matchID, raisedBy uuid.UUID, reason string) (*Dispute, error)
 

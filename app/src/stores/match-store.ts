@@ -110,32 +110,34 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
         return
       }
 
-      // GET /players/{userId}/matches — only returns sealed matches from the backend
-      const res = await api.get<{ items: unknown[] } | { Items: unknown[] } | unknown[]>(
-        `/players/${userId}/matches`,
-      )
+      // Fetch both sealed (history) and active (upcoming/pending) matches in parallel
+      const [historyRes, activeRes] = await Promise.all([
+        api.get<unknown[]>(`/players/${userId}/matches`).catch(() => ({ data: [] })),
+        api.get<unknown[]>(`/players/${userId}/matches/active`).catch(() => ({ data: [] })),
+      ])
 
-      // Normalise the response — backend may return an array or a wrapped object
-      let rawItems: unknown[]
-      if (Array.isArray(res.data)) {
-        rawItems = res.data
-      } else if ('items' in (res.data as object)) {
-        rawItems = (res.data as { items: unknown[] }).items ?? []
-      } else {
-        rawItems = (res.data as { Items: unknown[] }).Items ?? []
+      // Normalise responses
+      const normalize = (data: unknown): unknown[] => {
+        if (Array.isArray(data)) return data
+        if (data && typeof data === 'object' && 'items' in data) return (data as { items: unknown[] }).items ?? []
+        if (data && typeof data === 'object' && 'Items' in data) return (data as { Items: unknown[] }).Items ?? []
+        return []
       }
 
-      // Hydrate raw backend matches (team_a/team_b may be UUID string arrays)
-      const fetched: MatchDetail[] = rawItems.map((raw) =>
-        hydrateMatch(raw as Record<string, unknown>),
-      )
+      const historyRaw = normalize(historyRes.data)
+      const activeRaw = normalize(activeRes.data)
 
-      // Merge with any non-sealed matches already in the store (created optimistically)
-      const existing = get().matches.filter(
-        (m) => !SEALED_STATUSES.includes(m.status),
-      )
-      const existingIds = new Set(existing.map((m) => m.id))
-      const merged = [...existing, ...fetched.filter((m) => !existingIds.has(m.id))]
+      // Hydrate and merge, deduplicating by ID
+      const allRaw = [...activeRaw, ...historyRaw]
+      const seen = new Set<string>()
+      const merged: MatchDetail[] = []
+      for (const raw of allRaw) {
+        const match = hydrateMatch(raw as Record<string, unknown>)
+        if (!seen.has(match.id)) {
+          seen.add(match.id)
+          merged.push(match)
+        }
+      }
 
       set({ matches: merged, isLoading: false })
     } catch (e: unknown) {
@@ -292,3 +294,8 @@ export function filterMatchesByTab(matches: MatchDetail[], tab: MatchTab): Match
       return matches.filter((m) => SEALED_STATUSES.includes(m.status))
   }
 }
+
+// Clear store when user changes (logout/login)
+window.addEventListener('auth:user-changed', () => {
+  useMatchStore.setState({ matches: [], selectedMatch: null, error: null })
+})

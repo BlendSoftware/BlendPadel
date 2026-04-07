@@ -50,6 +50,29 @@ func (h *Handler) CreateFlare(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusCreated, flare)
 }
 
+// GetMyFlare handles GET /matchmaking/flares/mine.
+// Returns the caller's active flare (if any), without location/ELO filters.
+func (h *Handler) GetMyFlare(w http.ResponseWriter, r *http.Request) {
+	playerID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Problem(w, http.StatusUnauthorized, "Unauthorized", "missing authentication")
+		return
+	}
+
+	flare, err := h.svc.GetMyActiveFlare(r.Context(), playerID)
+	if err != nil {
+		response.Problem(w, http.StatusInternalServerError, "Internal Server Error", err.Error())
+		return
+	}
+
+	if flare == nil {
+		response.JSON(w, http.StatusOK, nil)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, flare)
+}
+
 // ListFlares handles GET /matchmaking/flares.
 func (h *Handler) ListFlares(w http.ResponseWriter, r *http.Request) {
 	viewerID, ok := auth.GetUserID(r.Context())

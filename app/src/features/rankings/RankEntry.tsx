@@ -107,7 +107,7 @@ export function RankEntry({ entry, isMe, isFooter = false, index }: RankEntryPro
       {/* ELO + category + trust badge */}
       <div className="flex flex-col items-end gap-1 shrink-0">
         <div className="flex items-center gap-1.5">
-          <CategoryBadge elo={entry.elo} />
+          <CategoryBadge elo={entry.elo} showFull />
           <span
             className={[
               'text-sm font-bold tabular-nums',

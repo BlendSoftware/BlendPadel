@@ -35,3 +35,10 @@ export interface UserLocation {
   lat: number
   lng: number
 }
+
+export interface PadelCourt {
+  id: number
+  name: string
+  lat: number
+  lng: number
+}

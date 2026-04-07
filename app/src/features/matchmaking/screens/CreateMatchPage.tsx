@@ -4,6 +4,7 @@ import { MapPin } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { PlayerSearchPicker } from '../components/PlayerSearchPicker'
+import { ProjectionCard } from '@/features/rankings/ProjectionCard'
 import { useMatchStore } from '@/stores/match-store'
 import { useAuthStore } from '@/stores/auth-store'
 import type { PlayerSearchResult, MatchType } from '../types'
@@ -31,7 +32,7 @@ export function CreateMatchPage() {
   const [matchType, setMatchType] = useState<MatchType>('male')
   const [scheduledAt, setScheduledAt] = useState('')
   const currentUserAsPlayer: PlayerSearchResult | null = user
-    ? { id: user.id, name: user.name ?? 'Yo', elo: user.elo ?? 0, avatar_url: user.avatar_url }
+    ? { id: user.id, name: user.name || 'Yo', elo: user.elo ?? 0, avatar_url: user.avatar_url }
     : null
   const [teamA, setTeamA] = useState<PlayerSearchResult[]>([])
   const [teamB, setTeamB] = useState<PlayerSearchResult[]>([])
@@ -43,14 +44,14 @@ export function CreateMatchPage() {
   // BUG 17 FIX: Only show store error after user has submitted at least once
   const [hasSubmitted, setHasSubmitted] = useState(false)
 
-  // Auto-fill current user in Team A on mount
+  // Auto-fill current user in Team A when user data becomes available
   useEffect(() => {
     if (currentUserAsPlayer && teamA.length === 0) {
       setTeamA([currentUserAsPlayer])
     }
     clearError()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [user?.id])
 
   const currentUserId = user?.id ?? ''
   const excludeA = [currentUserId, ...teamB.map((p) => p.id)].filter(Boolean) as string[]
@@ -230,7 +231,16 @@ export function CreateMatchPage() {
           />
         </div>
 
-        {/* BUG 9 FIX: Always show submit, validation runs and shows errors on submit */}
+        {/* ELO projection — show when both teams have 2 calibrated players */}
+        {teamA.length === 2 && teamB.length === 2 &&
+         teamA.every((p) => p.elo > 0) && teamB.every((p) => p.elo > 0) && (
+          <ProjectionCard
+            teamA={teamA.map((p) => p.elo)}
+            teamB={teamB.map((p) => p.elo)}
+          />
+        )}
+
+        {/* Submit */}
         <div className="pt-2">
           <p className="text-xs text-text-secondary text-center mb-4">
             Vas a ser el capitán del Equipo A. El capitán del Equipo B debe confirmar el resultado.

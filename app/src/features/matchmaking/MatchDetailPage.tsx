@@ -10,6 +10,7 @@ import { ConfirmCountdown } from './components/ConfirmCountdown'
 import { useMatchStore } from '@/stores/match-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { CategoryBadge } from '@/components/ui/CategoryBadge'
+import { ProjectionCard } from '@/features/rankings/ProjectionCard'
 import type { MatchDetail, MatchPlayer, MatchStatus } from './types'
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ function formatDate(dateStr: string): string {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    hour12: false,
   })
 }
 
@@ -324,6 +326,15 @@ export function MatchDetailPage() {
             <div className="border-t border-border" />
             <TeamRow players={match.team_b} label="Equipo B" />
           </div>
+
+          {/* ELO projection — show for non-sealed matches when all players have ELO > 0 */}
+          {match.status !== 'sealed' && match.status !== 'cancelled' && match.status !== 'disputed' &&
+           match.team_a.every((p) => p.elo > 0) && match.team_b.every((p) => p.elo > 0) && (
+            <ProjectionCard
+              teamA={match.team_a.map((p) => p.elo)}
+              teamB={match.team_b.map((p) => p.elo)}
+            />
+          )}
 
           {/* Result (if exists) */}
           {match.result && (

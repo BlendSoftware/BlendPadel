@@ -1,8 +1,7 @@
-import { useEffect } from 'react'
-import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet'
+import { useEffect, useState, useRef } from 'react'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
-import type { RadarMatch } from '@/types/radar'
-import type { UserLocation } from '@/types/radar'
+import type { RadarMatch, UserLocation, PadelCourt } from '@/types/radar'
 
 // ─── Custom SVG marker factory ────────────────────────────────────────────────
 // Bypasses the broken-path issue with Leaflet's default PNG icons in Vite/bundlers
@@ -46,6 +45,66 @@ function createUserIcon(): L.DivIcon {
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   })
+}
+
+// ─── Court icon ──────────────────────────────────────────────────────────────
+
+function createCourtIcon(): L.DivIcon {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+      <path d="M16 0C7.2 0 0 7.2 0 16c0 11.2 16 24 16 24S32 27.2 32 16C32 7.2 24.8 0 16 0z"
+        fill="#3b82f6" opacity="0.9"/>
+      <circle cx="16" cy="15" r="9" fill="#0f172a"/>
+      <text x="16" y="20" text-anchor="middle" font-size="12" fill="#3b82f6" font-family="system-ui">🎾</text>
+    </svg>
+  `
+  return L.divIcon({
+    html: svg,
+    className: '',
+    iconSize: [32, 40],
+    iconAnchor: [16, 40],
+    popupAnchor: [0, -40],
+  })
+}
+
+// ─── Overpass API hook: fetch padel courts near a location ───────────────────
+
+function useOverpassCourts(lat: number, lng: number, radiusM: number = 10000): PadelCourt[] {
+  const [courts, setCourts] = useState<PadelCourt[]>([])
+  const lastFetch = useRef('')
+
+  useEffect(() => {
+    // Avoid refetching for the same approximate location (rounded to 2 decimals)
+    const key = `${lat.toFixed(2)},${lng.toFixed(2)},${radiusM}`
+    if (key === lastFetch.current) return
+    lastFetch.current = key
+
+    const query = `[out:json][timeout:10];(node["sport"="padel"](around:${radiusM},${lat},${lng});way["sport"="padel"](around:${radiusM},${lat},${lng}););out center;`
+
+    const controller = new AbortController()
+    fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`, {
+      signal: controller.signal,
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        const results: PadelCourt[] = (data.elements ?? [])
+          .filter((el: any) => (el.lat ?? el.center?.lat) != null)
+          .map((el: any) => ({
+            id: el.id,
+            name: el.tags?.name || 'Cancha de pádel',
+            lat: el.lat ?? el.center?.lat,
+            lng: el.lon ?? el.center?.lon,
+          }))
+        setCourts(results)
+      })
+      .catch(() => {
+        // Overpass API failure is non-critical — silently ignore
+      })
+
+    return () => controller.abort()
+  }, [lat, lng, radiusM])
+
+  return courts
 }
 
 // ─── Map auto-center sub-component ───────────────────────────────────────────
@@ -111,6 +170,10 @@ const TILE_ATTRIBUTION =
 export function RadarMap({ matches, userLocation, onMarkerClick, onSearchHere }: RadarMapProps) {
   const center: [number, number] = [userLocation.lat, userLocation.lng]
   const userIcon = createUserIcon()
+  const courtIcon = createCourtIcon()
+
+  // Fetch padel courts from OpenStreetMap via Overpass API
+  const courts = useOverpassCourts(userLocation.lat, userLocation.lng)
 
   return (
     <div className="relative w-full h-full rounded-xl overflow-hidden">
@@ -137,6 +200,22 @@ export function RadarMap({ matches, userLocation, onMarkerClick, onSearchHere }:
 
         {/* User location dot */}
         <Marker position={center} icon={userIcon} aria-label="Tu ubicación" />
+
+        {/* Padel court markers from OpenStreetMap */}
+        {courts.map((court) => (
+          <Marker
+            key={`court-${court.id}`}
+            position={[court.lat, court.lng]}
+            icon={courtIcon}
+            aria-label={`Cancha: ${court.name}`}
+          >
+            <Popup>
+              <div style={{ color: '#0f172a', fontSize: '13px', fontWeight: 600 }}>
+                🎾 {court.name}
+              </div>
+            </Popup>
+          </Marker>
+        ))}
 
         {/* Match markers */}
         {matches.map((match) => {

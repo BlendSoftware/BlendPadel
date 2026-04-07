@@ -513,6 +513,11 @@ func (s *Service) GetMatchHistory(ctx context.Context, playerID uuid.UUID, limit
 	return s.repo.GetMatchHistory(ctx, playerID, limit, offset)
 }
 
+// GetActiveMatches returns non-sealed, non-cancelled matches for a player.
+func (s *Service) GetActiveMatches(ctx context.Context, playerID uuid.UUID) ([]MatchHistoryItem, error) {
+	return s.repo.GetActiveMatches(ctx, playerID)
+}
+
 // sealMatch is an internal helper that applies ELO and trust updates after a match is sealed.
 func (s *Service) sealMatch(ctx context.Context, matchID uuid.UUID) error {
 	m, err := s.repo.GetMatchWithPlayers(ctx, matchID)

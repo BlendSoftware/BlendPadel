@@ -321,6 +321,55 @@ func (r *postgresRepo) GetMatchHistory(ctx context.Context, playerID uuid.UUID, 
 	return items, nil
 }
 
+func (r *postgresRepo) GetActiveMatches(ctx context.Context, playerID uuid.UUID) ([]MatchHistoryItem, error) {
+	rows, err := r.q.GetActiveMatchesByPlayer(ctx, uuidToPg(playerID))
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]MatchHistoryItem, 0, len(rows))
+	for _, row := range rows {
+		item := MatchHistoryItem{
+			ID:          pgToUUID(row.ID),
+			Status:      row.Status,
+			ScheduledAt: row.ScheduledAt.Time,
+			CaptainAID:  pgToUUID(row.CaptainAID),
+			CaptainBID:  pgToUUID(row.CaptainBID),
+			AvgELO:      int(row.AvgElo.Int32),
+			MatchType:   row.MatchType,
+			VenueID:     pgToOptionalUUID(row.VenueID),
+			SealedBy:    row.SealedBy.String,
+			CreatedAt:   row.CreatedAt.Time,
+		}
+
+		// Load players.
+		players, pErr := r.q.GetMatchPlayers(ctx, uuidToPg(item.ID))
+		if pErr != nil {
+			return nil, pErr
+		}
+		for _, p := range players {
+			if p.Team == "A" {
+				item.TeamA = append(item.TeamA, pgToUUID(p.PlayerID))
+			} else {
+				item.TeamB = append(item.TeamB, pgToUUID(p.PlayerID))
+			}
+		}
+
+		// Load result if available.
+		result, rErr := r.q.GetMatchResult(ctx, uuidToPg(item.ID))
+		if rErr == nil {
+			item.WinnerTeam = result.WinnerTeam
+			item.TotalGamesA = int(result.TotalGamesA)
+			item.TotalGamesB = int(result.TotalGamesB)
+			item.GameDiff = int(result.GameDiff)
+		}
+
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
 func (r *postgresRepo) CreateDispute(ctx context.Context, matchID, raisedBy uuid.UUID, reason string) (*Dispute, error) {
 	row, err := r.q.CreateDispute(ctx, db.CreateDisputeParams{
 		MatchID:  uuidToPg(matchID),

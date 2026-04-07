@@ -8,7 +8,7 @@ import { SkeletonList } from '@/components/ui/Skeleton'
 import { FlareCard } from './components/FlareCard'
 import { MatchCard } from './components/MatchCard'
 import { useMatchmakingStore } from '@/stores/matchmaking-store'
-import { useMatchStore } from '@/stores/match-store'
+import { useMatchStore, filterMatchesByTab } from '@/stores/match-store'
 import { useAuthStore } from '@/stores/auth-store'
 import type { Flare } from './types'
 import type { MatchTab } from '@/stores/match-store'
@@ -23,6 +23,7 @@ function MyFlareSection() {
 
   const handleCancel = async () => {
     if (!myFlare) return
+    if (!window.confirm('¿Seguro que querés cancelar tu desafío?')) return
     await cancelFlare(myFlare.id)
   }
 
@@ -36,7 +37,7 @@ function MyFlareSection() {
         <p className="text-sm text-text-secondary line-clamp-2">{myFlare.message}</p>
         <p className="text-xs text-text-secondary">
           {new Date(myFlare.scheduled_at).toLocaleDateString('es-AR', {
-            weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+            weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
           })}
         </p>
         <Button variant="danger" size="sm" loading={isLoading} onClick={handleCancel}>
@@ -64,8 +65,8 @@ function FlareWall() {
   const fetchFlares = useMatchmakingStore((s) => s.fetchFlares)
   const user = useAuthStore((s) => s.user)
 
-  // Filter out own flares from the wall
-  const otherFlares = flares.filter((f) => f.user_id !== user?.id)
+  // Filter out own flares from the wall (backend may use user_id or player_id)
+  const otherFlares = flares.filter((f) => f.user_id !== user?.id && f.player_id !== user?.id)
 
   const handleRespond = (flare: Flare) => {
     navigate(`/matchmaking/flares/${flare.id}/respond`)
@@ -134,11 +135,14 @@ function MyMatchesSection() {
 
   useEffect(() => {
     fetchMatches()
-  }, [activeTab, fetchMatches])
+  }, [fetchMatches])
 
   const handleTabChange = (tab: MatchTab) => {
     setActiveTab(tab)
   }
+
+  // Filter matches by the active tab
+  const filteredMatches = filterMatchesByTab(matches, activeTab)
 
   return (
     <div className="space-y-4">
@@ -152,7 +156,6 @@ function MyMatchesSection() {
             className={[
               'flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors min-h-11',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green',
-              // BUG 7 FIX: Use explicit dark color for active tab text on green background
               activeTab === key
                 ? 'bg-padel-green text-neutral-950'
                 : 'text-text-secondary hover:text-text-primary',
@@ -167,7 +170,7 @@ function MyMatchesSection() {
       {/* Content */}
       {isLoading && matches.length === 0 ? (
         <SkeletonList count={3} variant="match" />
-      ) : matches.length === 0 ? (
+      ) : filteredMatches.length === 0 ? (
         <EmptyState
           icon={<Plus size={32} />}
           title="Sin partidos"
@@ -181,7 +184,7 @@ function MyMatchesSection() {
         />
       ) : (
         <div className="space-y-3">
-          {matches.map((match) => (
+          {filteredMatches.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}
         </div>
