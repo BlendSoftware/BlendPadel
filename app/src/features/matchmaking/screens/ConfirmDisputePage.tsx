@@ -1,19 +1,22 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { AlertTriangle, CheckCircle } from 'lucide-react'
 import { Header } from '@/components/layout/Header'
 import { Button } from '@/components/ui/Button'
 import { ConfirmCountdown } from '../components/ConfirmCountdown'
 import { useMatchStore } from '@/stores/match-store'
+import { Spinner } from '@/components/ui/Spinner'
 
 export function ConfirmDisputePage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const selectedMatch = useMatchStore((s) => s.selectedMatch)
+  const isLoading = useMatchStore((s) => s.isLoading)
   const isActionLoading = useMatchStore((s) => s.isActionLoading)
   const error = useMatchStore((s) => s.error)
   const confirmResult = useMatchStore((s) => s.confirmResult)
   const disputeResult = useMatchStore((s) => s.disputeResult)
+  const fetchMatch = useMatchStore((s) => s.fetchMatch)
   const clearError = useMatchStore((s) => s.clearError)
 
   const [showDisputeForm, setShowDisputeForm] = useState(false)
@@ -23,6 +26,24 @@ export function ConfirmDisputePage() {
   const matchId = id ?? ''
   const match = selectedMatch
   const result = match?.result
+
+  useEffect(() => {
+    if (!matchId) return
+    if (!selectedMatch || selectedMatch.id !== matchId) {
+      void fetchMatch(matchId)
+    }
+  }, [matchId, selectedMatch, fetchMatch])
+
+  if (isLoading && (!selectedMatch || selectedMatch.id !== matchId)) {
+    return (
+      <div className="flex flex-col min-h-full">
+        <Header title="Confirmar resultado" showBack backTo={`/matches/${matchId}`} />
+        <div className="flex items-center justify-center flex-1 py-16">
+          <Spinner />
+        </div>
+      </div>
+    )
+  }
 
   const handleConfirm = async () => {
     clearError()
@@ -51,7 +72,7 @@ export function ConfirmDisputePage() {
   if (!match || !result) {
     return (
       <div className="flex flex-col min-h-full">
-        <Header title="Confirmar resultado" showBack />
+        <Header title="Confirmar resultado" showBack backTo={`/matches/${matchId}`} />
         <div className="px-4 pt-8 text-center">
           <p className="text-text-secondary">No hay resultado para confirmar</p>
         </div>
@@ -66,7 +87,7 @@ export function ConfirmDisputePage() {
   if (showDisputeForm) {
     return (
       <div className="flex flex-col min-h-full">
-        <Header title="Disputar resultado" showBack />
+        <Header title="Disputar resultado" showBack backTo={`/matches/${matchId}`} />
         <div className="px-4 pt-4 space-y-5 pb-8">
           {/* Submitted result */}
           <div className="bg-bg-card border border-border rounded-xl p-4 text-center">
@@ -145,7 +166,7 @@ export function ConfirmDisputePage() {
 
   return (
     <div className="flex flex-col min-h-full">
-      <Header title="Confirmar resultado" showBack />
+      <Header title="Confirmar resultado" showBack backTo={`/matches/${matchId}`} />
 
       <div className="px-4 pt-4 space-y-5 pb-8">
         {/* Result submitted */}

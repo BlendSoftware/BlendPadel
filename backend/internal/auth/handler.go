@@ -36,6 +36,7 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		"id":          user.ID,
 		"email":       user.Email,
 		"name":        user.Name,
+		"last_name":   user.LastName,
 		"role":        user.Role,
 		"status":      user.Status,
 		"trust_score": user.TrustScore,

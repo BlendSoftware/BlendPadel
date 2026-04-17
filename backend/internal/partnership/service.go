@@ -103,6 +103,31 @@ func (s *Service) GetMyPartnerships(ctx context.Context, playerID uuid.UUID) ([]
 	return s.repo.GetActiveByPlayer(ctx, playerID)
 }
 
+func (s *Service) GetSentRequests(ctx context.Context, playerID uuid.UUID) ([]SentRequestResponse, error) {
+	items, err := s.repo.GetActiveByPlayer(ctx, playerID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]SentRequestResponse, 0, len(items))
+	for _, item := range items {
+		if item.Status != StatusPending || item.RequesterID != playerID {
+			continue
+		}
+		result = append(result, SentRequestResponse{
+			ID:     item.ID,
+			Status: item.Status,
+			RequestedUser: RequestedUser{
+				ID:       item.PartnerID,
+				FullName: item.PartnerName,
+			},
+			CreatedAt: item.CreatedAt,
+		})
+	}
+
+	return result, nil
+}
+
 // GetPartnershipStats returns pair statistics for a partnership.
 func (s *Service) GetPartnershipStats(ctx context.Context, partnershipID, callerID uuid.UUID) (*PairStatsResponse, error) {
 	p, err := s.repo.GetByID(ctx, partnershipID)

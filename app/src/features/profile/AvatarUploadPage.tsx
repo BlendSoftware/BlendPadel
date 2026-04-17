@@ -1,161 +1,154 @@
 import { useState, useRef } from 'react'
-import { Camera, Upload, X } from 'lucide-react'
+import { ArrowLeft, Camera, Upload, X, AlertCircle, ImagePlus } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useProfileStore } from '@/stores/profile-store'
 import { useAuthStore } from '@/stores/auth-store'
-import { Header } from '@/components/layout/Header'
-import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
+import styles from './SubPage.module.css'
 
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024 // 5 MB
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024
 const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
 export function AvatarUploadPage() {
-  const navigate = useNavigate()
-
-  const profile = useProfileStore((s) => s.profile)
-  const uploading = useProfileStore((s) => s.uploading)
+  const navigate     = useNavigate()
+  const profile      = useProfileStore((s) => s.profile)
+  const uploading    = useProfileStore((s) => s.uploading)
+  const profileError = useProfileStore((s) => s.error)
   const uploadAvatar = useProfileStore((s) => s.uploadAvatar)
+  const user         = useAuthStore((s) => s.user)
 
-  const user = useAuthStore((s) => s.user)
-
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const [previewUrl,   setPreviewUrl]   = useState<string | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [validationError, setValidationError] = useState<string | null>(null)
-  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [validError,   setValidError]   = useState<string | null>(null)
+  const [uploadError,  setUploadError]  = useState<string | null>(null)
 
-  const displayName = profile
-    ? `${profile.name} ${profile.last_name}`.trim()
-    : user?.name ?? ''
-
+  const displayName      = profile ? `${profile.name} ${profile.last_name}`.trim() : (user?.name ?? '')
   const currentAvatarUrl = profile?.avatar_url ?? user?.avatar_url ?? null
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-
-    setValidationError(null)
+    setValidError(null)
     setUploadError(null)
-
     if (!ACCEPTED_TYPES.includes(file.type)) {
-      setValidationError('Formato no soportado. Usá JPEG, PNG o WebP.')
+      setValidError('Formato no soportado. Usá JPEG, PNG o WebP.')
       return
     }
-
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      setValidationError('La imagen es demasiado grande. El máximo es 5 MB.')
+      setValidError('La imagen es demasiado grande. El máximo es 5 MB.')
       return
     }
-
     setSelectedFile(file)
-
-    // Generate preview
     const reader = new FileReader()
-    reader.onload = (ev) => {
-      setPreviewUrl(ev.target?.result as string)
-    }
+    reader.onload = (ev) => setPreviewUrl(ev.target?.result as string)
     reader.readAsDataURL(file)
   }
 
-  function handleClearSelection() {
+  function handleClear() {
     setSelectedFile(null)
     setPreviewUrl(null)
-    setValidationError(null)
+    setValidError(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleUpload() {
     if (!selectedFile) return
     setUploadError(null)
-
     try {
       await uploadAvatar(selectedFile)
       navigate(-1)
     } catch {
-      setUploadError('No se pudo subir la imagen. Intentá de nuevo.')
+      setUploadError(profileError ?? 'No se pudo subir la imagen. Intentá de nuevo.')
     }
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <Header title="Foto de perfil" showBack />
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label="Volver">
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className={styles.headerTitle}>Foto de perfil</h1>
+      </div>
 
-      <div className="px-4 pt-6 pb-6 flex flex-col items-center gap-6">
-        {/* Preview */}
-        <div className="relative">
-          {previewUrl ? (
-            <div className="relative">
-              <img
-                src={previewUrl}
-                alt="Vista previa"
-                className="w-32 h-32 rounded-full object-cover border-2 border-padel-green"
-              />
-              <button
-                onClick={handleClearSelection}
-                className="absolute -top-1 -right-1 flex items-center justify-center w-7 h-7 bg-trust-low rounded-full text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-trust-low"
-                aria-label="Quitar imagen seleccionada"
-              >
-                <X size={14} aria-hidden="true" />
-              </button>
-            </div>
-          ) : (
-            <Avatar src={currentAvatarUrl} name={displayName} size="xl" />
-          )}
+      <div className={styles.body}>
+        {/* ── Avatar preview card ── */}
+        <div className={styles.card} style={{ alignItems: 'center', gap: 20, padding: '32px 20px' }}>
+          {/* Preview / current avatar */}
+          <div className={styles.avatarPreviewWrap}>
+            {previewUrl ? (
+              <>
+                <img
+                  src={previewUrl}
+                  alt="Vista previa"
+                  className={styles.avatarPreview}
+                />
+                <button
+                  className={styles.avatarClearBtn}
+                  onClick={handleClear}
+                  aria-label="Quitar imagen seleccionada"
+                  type="button"
+                >
+                  <X size={13} />
+                </button>
+              </>
+            ) : (
+              <Avatar src={currentAvatarUrl} name={displayName} size="xl" />
+            )}
+          </div>
+
+          <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <p className={styles.avatarLabel}>
+              {previewUrl
+                ? 'Vista previa — confirmá para subir'
+                : currentAvatarUrl
+                  ? 'Foto actual'
+                  : 'Sin foto de perfil'}
+            </p>
+            <p className={styles.avatarHint}>JPEG · PNG · WebP · Máx 5 MB</p>
+          </div>
         </div>
 
-        {/* Current avatar label */}
-        {!previewUrl && (
-          <p className="text-text-secondary text-sm text-center">
-            {currentAvatarUrl ? 'Foto actual' : 'Sin foto de perfil'}
-          </p>
+        {/* ── Errores ── */}
+        {(validError || uploadError) && (
+          <div className={styles.errorAlert} role="alert">
+            <AlertCircle size={16} className={styles.errorIcon} />
+            <p className={styles.errorText}>{validError ?? uploadError}</p>
+          </div>
         )}
 
-        {/* File picker button */}
-        <div className="w-full max-w-xs space-y-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED_TYPES.join(',')}
-            onChange={handleFileChange}
-            className="sr-only"
-            id="avatar-file-input"
-            aria-label="Seleccionar imagen"
-          />
-          <label
-            htmlFor="avatar-file-input"
-            className={[
-              'flex items-center justify-center gap-2 w-full min-h-11 rounded-xl border font-medium text-sm cursor-pointer transition-all duration-150',
-              'bg-transparent text-padel-green border-padel-green hover:bg-padel-green/10 active:scale-95',
-              'focus-within:ring-2 focus-within:ring-padel-green',
-            ].join(' ')}
+        {/* ── File picker ── */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={ACCEPTED_TYPES.join(',')}
+          onChange={handleFileChange}
+          className="sr-only"
+          id="avatar-file-input"
+          aria-label="Seleccionar imagen"
+        />
+
+        <label htmlFor="avatar-file-input" className={styles.filePickerLabel}>
+          <Camera size={17} />
+          {selectedFile ? 'Elegir otra imagen' : 'Seleccionar imagen'}
+        </label>
+
+        {/* ── Upload confirm (solo si hay archivo) ── */}
+        {selectedFile && (
+          <button
+            type="button"
+            className={styles.submitBtn}
+            onClick={handleUpload}
+            disabled={uploading}
           >
-            <Camera size={16} aria-hidden="true" />
-            {selectedFile ? 'Elegir otra imagen' : 'Seleccionar imagen'}
-          </label>
-
-          <p className="text-text-secondary text-xs text-center">
-            JPEG, PNG o WebP · Máximo 5 MB
-          </p>
-
-          {validationError && (
-            <p className="text-trust-low text-sm text-center" role="alert">
-              {validationError}
-            </p>
-          )}
-          {uploadError && (
-            <p className="text-trust-low text-sm text-center" role="alert">
-              {uploadError}
-            </p>
-          )}
-
-          {selectedFile && (
-            <Button fullWidth loading={uploading} onClick={handleUpload}>
-              <Upload size={16} aria-hidden="true" />
-              Subir foto
-            </Button>
-          )}
-        </div>
+            {uploading
+              ? <><span className={styles.btnSpinner} /> Subiendo…</>
+              : <><Upload size={16} /> Subir foto</>
+            }
+          </button>
+        )}
       </div>
     </div>
   )

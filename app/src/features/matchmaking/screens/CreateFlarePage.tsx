@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin } from 'lucide-react'
-import { Header } from '@/components/layout/Header'
-import { Button } from '@/components/ui/Button'
+import { ArrowLeft, MapPin, Zap, AlertCircle } from 'lucide-react'
 import { useMatchmakingStore } from '@/stores/matchmaking-store'
 import type { MatchType } from '../types'
+
+// Re-use the shared sub-page styles for consistency
+import styles from '../../../features/profile/SubPage.module.css'
 
 function toLocalDatetimeValue(date: Date): string {
   const pad = (n: number) => n.toString().padStart(2, '0')
@@ -14,71 +15,55 @@ function toLocalDatetimeValue(date: Date): string {
   )
 }
 
-// Minimum datetime: 30 minutes from now
 function minDatetime(): string {
   return toLocalDatetimeValue(new Date(Date.now() + 30 * 60 * 1000))
 }
 
-export function CreateFlarePage() {
-  const navigate = useNavigate()
-  const isLoading = useMatchmakingStore((s) => s.isLoading)
-  const error = useMatchmakingStore((s) => s.error)
-  const createFlare = useMatchmakingStore((s) => s.createFlare)
-  const clearError = useMatchmakingStore((s) => s.clearError)
+const MATCH_TYPES = [
+  { value: 'male'   as const, label: 'Masculino', css: styles.typeBtnMale },
+  { value: 'female' as const, label: 'Femenino',  css: styles.typeBtnFemale },
+  { value: 'mixed'  as const, label: 'Mixto',     css: styles.typeBtnMixed },
+]
 
-  const [matchType, setMatchType] = useState<MatchType>('male')
-  const [scheduledAt, setScheduledAt] = useState('')
-  const [message, setMessage] = useState('')
-  const [useLocation, setUseLocation] = useState(false)
-  const [lat, setLat] = useState<number | null>(null)
-  const [lng, setLng] = useState<number | null>(null)
-  const [locationError, setLocationError] = useState('')
+export function CreateFlarePage() {
+  const navigate     = useNavigate()
+  const isLoading    = useMatchmakingStore((s) => s.isLoading)
+  const error        = useMatchmakingStore((s) => s.error)
+  const createFlare  = useMatchmakingStore((s) => s.createFlare)
+  const clearError   = useMatchmakingStore((s) => s.clearError)
+
+  const [matchType,       setMatchType]       = useState<MatchType>('male')
+  const [scheduledAt,     setScheduledAt]     = useState('')
+  const [message,         setMessage]         = useState('')
+  const [lat,             setLat]             = useState<number | null>(null)
+  const [lng,             setLng]             = useState<number | null>(null)
+  const [locationError,   setLocationError]   = useState('')
   const [gettingLocation, setGettingLocation] = useState(false)
   const [fieldErrors, setFieldErrors] = useState<{ scheduledAt?: string; message?: string }>({})
-  // BUG 17 FIX: Only show store error after user has submitted at least once
-  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [hasSubmitted,    setHasSubmitted]    = useState(false)
 
-  // Clear stale errors from previous sessions on mount
-  useEffect(() => {
-    clearError()
-  }, [clearError])
+  useEffect(() => { clearError() }, [clearError])
 
-  const handleGetLocation = () => {
-    if (!navigator.geolocation) {
-      setLocationError('Tu dispositivo no soporta geolocalización')
-      return
-    }
+  function handleGetLocation() {
+    if (!navigator.geolocation) { setLocationError('Tu dispositivo no soporta geolocalización'); return }
     setGettingLocation(true)
     setLocationError('')
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLat(pos.coords.latitude)
-        setLng(pos.coords.longitude)
-        setUseLocation(true)
-        setGettingLocation(false)
-      },
-      () => {
-        setLocationError('No se pudo obtener la ubicación. Verificá los permisos.')
-        setGettingLocation(false)
-      },
+      (pos) => { setLat(pos.coords.latitude); setLng(pos.coords.longitude); setGettingLocation(false) },
+      ()    => { setLocationError('No se pudo obtener la ubicación. Verificá los permisos.'); setGettingLocation(false) },
     )
   }
 
-  const validate = (): boolean => {
+  function validate(): boolean {
     const errors: typeof fieldErrors = {}
-    if (!scheduledAt) {
-      errors.scheduledAt = 'La fecha y hora son obligatorias'
-    } else if (new Date(scheduledAt) <= new Date()) {
-      errors.scheduledAt = 'La fecha debe ser futura'
-    }
-    if (message.trim().length < 5) {
-      errors.message = 'El mensaje debe tener al menos 5 caracteres'
-    }
+    if (!scheduledAt)                           errors.scheduledAt = 'La fecha y hora son obligatorias'
+    else if (new Date(scheduledAt) <= new Date()) errors.scheduledAt = 'La fecha debe ser futura'
+    if (message.trim().length < 5)              errors.message = 'El mensaje debe tener al menos 5 caracteres'
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setHasSubmitted(true)
     clearError()
@@ -86,109 +71,60 @@ export function CreateFlarePage() {
     try {
       await createFlare({
         scheduled_at: new Date(scheduledAt).toISOString(),
-        latitude: lat,
-        longitude: lng,
-        message: message.trim(),
-        match_type: matchType,
+        latitude: lat, longitude: lng,
+        message: message.trim(), match_type: matchType,
       })
       navigate('/matchmaking')
-    } catch {
-      // error set in store
-    }
+    } catch { /* error set in store */ }
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <Header title="Crear desafío" showBack />
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label="Volver">
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className={styles.headerTitle}>Crear desafío</h1>
+      </div>
 
-      <form onSubmit={handleSubmit} className="px-4 pt-4 space-y-5 pb-8">
-        {/* BUG 17 FIX: Only show error after user has submitted */}
+      <form className={styles.body} onSubmit={handleSubmit}>
+        {/* ── Server error ── */}
         {hasSubmitted && error && (
-          <div role="alert" className="bg-trust-low/10 border border-trust-low/30 rounded-xl p-3 text-sm text-trust-low">
-            {error}
+          <div className={styles.errorAlert} role="alert">
+            <AlertCircle size={16} className={styles.errorIcon} />
+            <p className={styles.errorText}>{error}</p>
           </div>
         )}
 
-        {/* Date/time */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="scheduled-at" className="text-sm font-medium text-text-secondary">
-            Fecha y hora
-          </label>
-          <input
-            id="scheduled-at"
-            type="datetime-local"
-            min={minDatetime()}
-            value={scheduledAt}
-            onChange={(e) => {
-              setScheduledAt(e.target.value)
-              setFieldErrors((prev) => ({ ...prev, scheduledAt: undefined }))
-            }}
-            aria-invalid={!!fieldErrors.scheduledAt}
-            className={[
-              'w-full rounded-xl bg-bg-input text-text-primary border transition-colors min-h-11 px-4 py-2.5 text-sm',
-              'focus:outline-none focus:border-padel-green focus:ring-1 focus:ring-padel-green',
-              fieldErrors.scheduledAt ? 'border-trust-low' : 'border-border',
-            ].join(' ')}
-          />
-          {fieldErrors.scheduledAt && (
-            <p role="alert" className="text-xs text-trust-low">{fieldErrors.scheduledAt}</p>
-          )}
+        {/* ── Fecha y hora ── */}
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Cuándo</p>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="scheduled-at">Fecha y hora</label>
+            <input
+              id="scheduled-at"
+              type="datetime-local"
+              min={minDatetime()}
+              value={scheduledAt}
+              onChange={(e) => { setScheduledAt(e.target.value); setFieldErrors((p) => ({ ...p, scheduledAt: undefined })) }}
+              aria-invalid={!!fieldErrors.scheduledAt}
+              className={`${styles.input} ${fieldErrors.scheduledAt ? styles.inputError : ''}`}
+            />
+            {fieldErrors.scheduledAt && <p className={styles.fieldError} role="alert">{fieldErrors.scheduledAt}</p>}
+          </div>
         </div>
 
-        {/* Location */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-text-secondary">Ubicación (opcional)</p>
-          {useLocation && lat !== null ? (
-            <div className="flex items-center gap-3 bg-bg-input border border-border rounded-xl px-4 py-3">
-              <MapPin size={16} className="text-padel-green shrink-0" aria-hidden="true" />
-              <span className="text-sm text-text-primary flex-1">
-                {lat.toFixed(4)}, {lng?.toFixed(4)}
-              </span>
-              <button
-                type="button"
-                onClick={() => { setLat(null); setLng(null); setUseLocation(false) }}
-                className="text-xs text-text-secondary hover:text-trust-low transition-colors min-h-11 px-2"
-              >
-                Quitar
-              </button>
-            </div>
-          ) : (
-            <Button
-              type="button"
-              variant="secondary"
-              fullWidth
-              loading={gettingLocation}
-              onClick={handleGetLocation}
-            >
-              <MapPin size={16} aria-hidden="true" />
-              Usar mi ubicación
-            </Button>
-          )}
-          {locationError && (
-            <p role="alert" className="text-xs text-trust-low">{locationError}</p>
-          )}
-        </div>
-
-        {/* Match type */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-text-secondary">Tipo de partido</p>
-          <div className="flex gap-2">
-            {([
-              { value: 'male', label: 'Masculino' },
-              { value: 'female', label: 'Femenino' },
-              { value: 'mixed', label: 'Mixto' },
-            ] as const).map((opt) => (
+        {/* ── Tipo de partido ── */}
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Tipo de partido</p>
+          <div className={styles.typeSelector}>
+            {MATCH_TYPES.map((opt) => (
               <button
                 key={opt.value}
                 type="button"
+                className={`${styles.typeBtn} ${opt.css} ${matchType === opt.value ? styles.typeBtnActive : ''}`}
                 onClick={() => setMatchType(opt.value)}
-                className={[
-                  'flex-1 min-h-11 rounded-full text-sm font-medium transition-colors',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green',
-                  matchType === opt.value
-                    ? 'bg-padel-green text-bg-dark'
-                    : 'bg-bg-input text-text-secondary border border-border hover:text-text-primary',
-                ].join(' ')}
               >
                 {opt.label}
               </button>
@@ -196,40 +132,70 @@ export function CreateFlarePage() {
           </div>
         </div>
 
-        {/* Message */}
-        <div className="flex flex-col gap-1">
-          <label htmlFor="flare-message" className="text-sm font-medium text-text-secondary">
-            Mensaje
-          </label>
-          <textarea
-            id="flare-message"
-            value={message}
-            onChange={(e) => {
-              setMessage(e.target.value)
-              setFieldErrors((prev) => ({ ...prev, message: undefined }))
-            }}
-            placeholder="¿Qué nivel buscás? ¿Algún club preferido?"
-            rows={3}
-            maxLength={280}
-            aria-invalid={!!fieldErrors.message}
-            className={[
-              'w-full rounded-xl bg-bg-input text-text-primary placeholder:text-text-secondary border transition-colors px-4 py-3 text-sm resize-none',
-              'focus:outline-none focus:border-padel-green focus:ring-1 focus:ring-padel-green',
-              fieldErrors.message ? 'border-trust-low' : 'border-border',
-            ].join(' ')}
-          />
-          <div className="flex justify-between">
-            {fieldErrors.message
-              ? <p role="alert" className="text-xs text-trust-low">{fieldErrors.message}</p>
-              : <span />
-            }
-            <p className="text-xs text-text-secondary">{message.length}/280</p>
+        {/* ── Ubicación ── */}
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>
+            <MapPin size={12} className={styles.cardTitleIcon} />
+            Ubicación (opcional)
+          </p>
+
+          {lat !== null ? (
+            <div className={styles.locationChip}>
+              <MapPin size={15} className={styles.locationChipIcon} />
+              <span className={styles.locationCoords}>{lat.toFixed(4)}, {lng?.toFixed(4)}</span>
+              <button type="button" className={styles.locationRemoveBtn} onClick={() => { setLat(null); setLng(null) }}>
+                Quitar
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className={`${styles.submitBtn} ${styles.submitBtnSecondary}`}
+              onClick={handleGetLocation}
+              disabled={gettingLocation}
+            >
+              {gettingLocation
+                ? <><span className={`${styles.btnSpinner} ${styles.btnSpinnerLight}`} /> Obteniendo…</>
+                : <><MapPin size={15} /> Usar mi ubicación</>
+              }
+            </button>
+          )}
+
+          {locationError && <p className={styles.fieldError} role="alert">{locationError}</p>}
+        </div>
+
+        {/* ── Mensaje ── */}
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Mensaje para los rivales</p>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="flare-message">Mensaje</label>
+            <textarea
+              id="flare-message"
+              value={message}
+              onChange={(e) => { setMessage(e.target.value); setFieldErrors((p) => ({ ...p, message: undefined })) }}
+              placeholder="¿Qué nivel buscás? ¿Algún club preferido?"
+              rows={3}
+              maxLength={280}
+              aria-invalid={!!fieldErrors.message}
+              className={`${styles.textarea} ${fieldErrors.message ? styles.textareaError : ''}`}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              {fieldErrors.message
+                ? <p className={styles.fieldError} role="alert">{fieldErrors.message}</p>
+                : <span />
+              }
+              <p className={styles.charCount}>{message.length}/280</p>
+            </div>
           </div>
         </div>
 
-        <Button type="submit" fullWidth loading={isLoading} size="lg">
-          Publicar desafío
-        </Button>
+        {/* ── Submit ── */}
+        <button type="submit" className={styles.submitBtn} disabled={isLoading}>
+          {isLoading
+            ? <><span className={styles.btnSpinner} /> Publicando…</>
+            : <><Zap size={16} /> Publicar desafío</>
+          }
+        </button>
       </form>
     </div>
   )

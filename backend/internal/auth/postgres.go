@@ -21,11 +21,12 @@ func NewPostgresRepo(q *db.Queries) Repository {
 	return &postgresRepo{q: q}
 }
 
-func (r *postgresRepo) CreateUser(ctx context.Context, email, passwordHash, name string) (*db.User, error) {
+func (r *postgresRepo) CreateUser(ctx context.Context, email, passwordHash, name, lastName string) (*db.User, error) {
 	user, err := r.q.CreateUser(ctx, db.CreateUserParams{
 		Email:        email,
 		PasswordHash: passwordHash,
 		Name:         pgtype.Text{String: name, Valid: name != ""},
+		LastName:     pgtype.Text{String: lastName, Valid: lastName != ""},
 	})
 	if err != nil {
 		return nil, err

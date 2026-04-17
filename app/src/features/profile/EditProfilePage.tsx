@@ -1,51 +1,34 @@
 import { useState, useEffect } from 'react'
-import { MapPin, Navigation } from 'lucide-react'
+import { ArrowLeft, MapPin, Navigation, AlertCircle, Check } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useProfileStore } from '@/stores/profile-store'
-import { Header } from '@/components/layout/Header'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
-import { Input } from '@/components/ui/Input'
+import styles from './SubPage.module.css'
 
-// Mendoza province approximate bounds
-const MENDOZA_BOUNDS = {
-  latMin: -35.5,
-  latMax: -32.0,
-  lngMin: -70.5,
-  lngMax: -67.5,
-}
+const MENDOZA_BOUNDS = { latMin: -35.5, latMax: -32.0, lngMin: -70.5, lngMax: -67.5 }
 
 function isWithinMendoza(lat: number, lng: number): boolean {
-  return (
-    lat >= MENDOZA_BOUNDS.latMin &&
-    lat <= MENDOZA_BOUNDS.latMax &&
-    lng >= MENDOZA_BOUNDS.lngMin &&
-    lng <= MENDOZA_BOUNDS.lngMax
-  )
+  return lat >= MENDOZA_BOUNDS.latMin && lat <= MENDOZA_BOUNDS.latMax &&
+    lng >= MENDOZA_BOUNDS.lngMin && lng <= MENDOZA_BOUNDS.lngMax
 }
 
 export function EditProfilePage() {
-  const navigate = useNavigate()
+  const navigate       = useNavigate()
+  const profile        = useProfileStore((s) => s.profile)
+  const loading        = useProfileStore((s) => s.loading)
+  const updateProfile  = useProfileStore((s) => s.updateProfile)
+  const fetchProfile   = useProfileStore((s) => s.fetchProfile)
 
-  const profile = useProfileStore((s) => s.profile)
-  const loading = useProfileStore((s) => s.loading)
-  const updateProfile = useProfileStore((s) => s.updateProfile)
-  const fetchProfile = useProfileStore((s) => s.fetchProfile)
-
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName] = useState('')
-  const [lat, setLat] = useState<number | null>(null)
-  const [lng, setLng] = useState<number | null>(null)
-  const [geoLoading, setGeoLoading] = useState(false)
-  const [geoError, setGeoError] = useState<string | null>(null)
+  const [firstName,   setFirstName]   = useState('')
+  const [lastName,    setLastName]    = useState('')
+  const [lat,         setLat]         = useState<number | null>(null)
+  const [lng,         setLng]         = useState<number | null>(null)
+  const [geoLoading,  setGeoLoading]  = useState(false)
+  const [geoError,    setGeoError]    = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [saved,       setSaved]       = useState(false)
 
-  // Seed form with current profile data
   useEffect(() => {
-    if (!profile) {
-      fetchProfile()
-      return
-    }
+    if (!profile) { fetchProfile(); return }
     setFirstName(profile.name ?? '')
     setLastName(profile.last_name ?? '')
     setLat(profile.latitude ?? null)
@@ -53,21 +36,14 @@ export function EditProfilePage() {
   }, [profile, fetchProfile])
 
   function handleGetLocation() {
-    if (!navigator.geolocation) {
-      setGeoError('Tu navegador no soporta geolocalización.')
-      return
-    }
-
+    if (!navigator.geolocation) { setGeoError('Tu navegador no soporta geolocalización.'); return }
     setGeoLoading(true)
     setGeoError(null)
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords
         if (!isWithinMendoza(latitude, longitude)) {
-          setGeoError(
-            'Tu ubicación está fuera de Mendoza. Verificá que el GPS esté activado correctamente.',
-          )
+          setGeoError('Tu ubicación está fuera de Mendoza. Verificá que el GPS esté activado correctamente.')
           setGeoLoading(false)
           return
         }
@@ -76,11 +52,9 @@ export function EditProfilePage() {
         setGeoLoading(false)
       },
       (err) => {
-        if (err.code === err.PERMISSION_DENIED) {
-          setGeoError('Permiso de ubicación denegado. Habilitalo en la configuración del navegador.')
-        } else {
-          setGeoError('No se pudo obtener tu ubicación. Intentá de nuevo.')
-        }
+        setGeoError(err.code === err.PERMISSION_DENIED
+          ? 'Permiso de ubicación denegado. Habilitalo en la configuración del navegador.'
+          : 'No se pudo obtener tu ubicación. Intentá de nuevo.')
         setGeoLoading(false)
       },
       { enableHighAccuracy: true, timeout: 10000 },
@@ -90,97 +64,119 @@ export function EditProfilePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setSubmitError(null)
-
-    // BUG 14 FIX: Include name field in update payload
+    setSaved(false)
     const data: { name?: string; last_name?: string; latitude?: number; longitude?: number } = {}
-    if (firstName.trim()) data.name = firstName.trim()
-    if (lastName.trim()) data.last_name = lastName.trim()
-    if (lat !== null) data.latitude = lat
-    if (lng !== null) data.longitude = lng
-
+    if (firstName.trim()) data.name      = firstName.trim()
+    if (lastName.trim())  data.last_name = lastName.trim()
+    if (lat !== null)     data.latitude  = lat
+    if (lng !== null)     data.longitude = lng
     try {
       await updateProfile(data)
-      navigate(-1)
+      setSaved(true)
+      setTimeout(() => navigate(-1), 800)
     } catch {
       setSubmitError('No se pudo guardar los cambios. Intentá de nuevo.')
     }
   }
 
   return (
-    <div className="flex flex-col min-h-full">
-      <Header title="Editar perfil" showBack />
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <button className={styles.backBtn} onClick={() => navigate(-1)} aria-label="Volver">
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className={styles.headerTitle}>Editar perfil</h1>
+      </div>
 
-      <form onSubmit={handleSubmit} className="px-4 pt-6 pb-6 space-y-4">
-        {/* Name fields — BUG 14 FIX: Added nombre field */}
-        <Card>
-          <div className="space-y-4">
-            <Input
-              label="Nombre"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="Tu nombre"
-              autoComplete="given-name"
-            />
-            <Input
-              label="Apellido"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Tu apellido"
-              autoComplete="family-name"
-            />
+      <form className={styles.body} onSubmit={handleSubmit}>
+        {/* ── Nombre y apellido ── */}
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>Información personal</p>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="ep-name">Nombre</label>
+              <input
+                id="ep-name"
+                className={styles.input}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Tu nombre"
+                autoComplete="given-name"
+              />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="ep-last">Apellido</label>
+              <input
+                id="ep-last"
+                className={styles.input}
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Tu apellido"
+                autoComplete="family-name"
+              />
+            </div>
           </div>
-        </Card>
+        </div>
 
-        {/* Location */}
-        <Card>
-          <p className="text-sm font-semibold text-text-primary mb-3 flex items-center gap-2">
-            <MapPin size={16} className="text-padel-green" aria-hidden="true" />
+        {/* ── Ubicación ── */}
+        <div className={styles.card}>
+          <p className={styles.cardTitle}>
+            <MapPin size={12} className={styles.cardTitleIcon} />
             Ubicación
           </p>
 
           {lat !== null && lng !== null ? (
-            <div className="flex items-center gap-2 mb-3 p-3 bg-bg-input rounded-xl">
-              <MapPin size={14} className="text-padel-green shrink-0" aria-hidden="true" />
-              <div>
-                <p className="text-text-primary text-sm font-medium">Ubicación guardada</p>
-                <p className="text-text-secondary text-xs">
-                  {lat.toFixed(4)}, {lng.toFixed(4)}
-                </p>
-              </div>
+            <div className={styles.locationChip}>
+              <MapPin size={15} className={styles.locationChipIcon} />
+              <span className={styles.locationCoords}>{lat.toFixed(4)}, {lng.toFixed(4)}</span>
+              <button
+                type="button"
+                className={styles.locationRemoveBtn}
+                onClick={() => { setLat(null); setLng(null) }}
+              >
+                Quitar
+              </button>
             </div>
           ) : (
-            <p className="text-text-secondary text-sm mb-3">Sin ubicación guardada</p>
+            <p className={styles.fieldHint}>Sin ubicación guardada</p>
           )}
 
-          <Button
+          <button
             type="button"
-            variant="outline"
+            className={`${styles.submitBtn} ${styles.submitBtnSecondary}`}
             onClick={handleGetLocation}
-            loading={geoLoading}
-            fullWidth
+            disabled={geoLoading}
           >
-            <Navigation size={16} aria-hidden="true" />
-            {lat !== null ? 'Actualizar mi ubicación' : 'Usar mi ubicación'}
-          </Button>
+            {geoLoading
+              ? <><span className={`${styles.btnSpinner} ${styles.btnSpinnerLight}`} /> Obteniendo ubicación…</>
+              : <><Navigation size={15} /> {lat !== null ? 'Actualizar ubicación' : 'Usar mi ubicación'}</>
+            }
+          </button>
 
           {geoError && (
-            <p className="text-trust-low text-xs mt-2" role="alert">
-              {geoError}
-            </p>
+            <p className={styles.fieldError} role="alert">{geoError}</p>
           )}
-        </Card>
+        </div>
 
-        {/* Submit error */}
+        {/* ── Submit error ── */}
         {submitError && (
-          <p className="text-trust-low text-sm text-center" role="alert">
-            {submitError}
-          </p>
+          <div className={styles.errorAlert} role="alert">
+            <AlertCircle size={16} className={styles.errorIcon} />
+            <p className={styles.errorText}>{submitError}</p>
+          </div>
         )}
 
-        {/* Submit */}
-        <Button type="submit" fullWidth loading={loading}>
-          Guardar cambios
-        </Button>
+        {/* ── Submit ── */}
+        <button type="submit" className={styles.submitBtn} disabled={loading}>
+          {loading
+            ? <><span className={styles.btnSpinner} /> Guardando…</>
+            : saved
+            ? <><Check size={16} /> Guardado</>
+            : 'Guardar cambios'
+          }
+        </button>
       </form>
     </div>
   )

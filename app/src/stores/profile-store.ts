@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import api from '@/services/api'
+import { extractApiError } from '@/lib/api-errors'
 import type {
   PlayerProfile,
   PublicPlayerProfile,
@@ -87,7 +88,7 @@ export const useProfileStore = create<ProfileState & ProfileActions>()((set, get
     set({ uploading: true, error: null })
     try {
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('avatar', file)
       const res = await api.post<{ avatar_url: string }>('/players/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
@@ -100,8 +101,8 @@ export const useProfileStore = create<ProfileState & ProfileActions>()((set, get
         set({ uploading: false })
       }
       return avatarUrl
-    } catch {
-      set({ error: 'No se pudo subir la imagen. Intentá de nuevo.', uploading: false })
+    } catch (e: unknown) {
+      set({ error: extractApiError(e, 'No se pudo subir la imagen. Intenta de nuevo.'), uploading: false })
       throw new Error('upload_failed')
     }
   },
@@ -154,12 +155,20 @@ export const useProfileStore = create<ProfileState & ProfileActions>()((set, get
 
   updatePreferences: async (data) => {
     const previous = get().preferences
+    const merged = {
+      radar_radius_km: previous?.radar_radius_km ?? 10,
+      elo_min_delta: previous?.elo_min_delta ?? -200,
+      elo_max_delta: previous?.elo_max_delta ?? 200,
+      ...data,
+    }
     // Optimistic update
     if (previous) {
-      set({ preferences: { ...previous, ...data }, savingPreferences: true })
+      set({ preferences: { ...previous, ...data }, savingPreferences: true, error: null })
+    } else {
+      set({ savingPreferences: true, error: null })
     }
     try {
-      const res = await api.put<PlayerPreferences>('/players/me/preferences', data)
+      const res = await api.put<PlayerPreferences>('/players/me/preferences', merged)
       set({ preferences: res.data, savingPreferences: false })
       // BUG 13 FIX: Sync radar store radiusKm when radar_radius_km preference changes
       if (res.data.radar_radius_km !== undefined) {
@@ -172,9 +181,10 @@ export const useProfileStore = create<ProfileState & ProfileActions>()((set, get
         ) as RadiusOption
         useRadarStore.getState().setRadiusKm(nearest)
       }
-    } catch {
+    } catch (e: unknown) {
       // Revert on error
-      set({ preferences: previous, savingPreferences: false })
+      set({ preferences: previous, savingPreferences: false, error: extractApiError(e, 'No se pudieron guardar las preferencias.') })
+      throw e
     }
   },
 

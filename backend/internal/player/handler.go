@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -101,6 +102,10 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	// Limit parse to 6MB to detect oversized files (service enforces 5MB after parse).
 	if err := r.ParseMultipartForm(6 * 1024 * 1024); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "too large") {
+			response.Problem(w, http.StatusRequestEntityTooLarge, "Payload Too Large", "image is too large; max size is 5MB")
+			return
+		}
 		response.Problem(w, http.StatusBadRequest, "Bad Request", "failed to parse multipart form")
 		return
 	}
@@ -254,13 +259,41 @@ func (h *Handler) SearchPlayers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	results, err := h.service.SearchByName(r.Context(), q)
+	excludeIDs, err := parseExcludeIDs(r.URL.Query().Get("exclude_ids"))
+	if err != nil {
+		response.Problem(w, http.StatusBadRequest, "Bad Request", "invalid exclude_ids")
+		return
+	}
+
+	matchType := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("match_type")))
+
+	results, err := h.service.SearchByName(r.Context(), q, excludeIDs, matchType)
 	if err != nil {
 		h.writeError(w, err)
 		return
 	}
 
 	response.JSON(w, http.StatusOK, results)
+}
+
+func parseExcludeIDs(raw string) ([]uuid.UUID, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	parts := strings.Split(raw, ",")
+	ids := make([]uuid.UUID, 0, len(parts))
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed == "" {
+			continue
+		}
+		id, err := uuid.Parse(trimmed)
+		if err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 // writeError maps domain errors to RFC 7807 problem details.

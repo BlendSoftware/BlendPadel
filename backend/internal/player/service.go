@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -226,6 +227,34 @@ func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, file multi
 }
 
 // SearchByName returns players matching the given name query.
-func (s *Service) SearchByName(ctx context.Context, query string) ([]PlayerSearchResult, error) {
-	return s.repo.SearchByName(ctx, query)
+func (s *Service) SearchByName(ctx context.Context, query string, excludeIDs []uuid.UUID, matchType string) ([]PlayerSearchResult, error) {
+	results, err := s.repo.SearchByName(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	excluded := make([]uuid.UUID, 0, len(excludeIDs))
+	excluded = append(excluded, excludeIDs...)
+
+	filtered := make([]PlayerSearchResult, 0, len(results))
+	for _, player := range results {
+		if slices.Contains(excluded, player.ID) {
+			continue
+		}
+
+		switch matchType {
+		case "male":
+			if player.Gender != GenderMale {
+				continue
+			}
+		case "female":
+			if player.Gender != GenderFemale {
+				continue
+			}
+		}
+
+		filtered = append(filtered, player)
+	}
+
+	return filtered, nil
 }

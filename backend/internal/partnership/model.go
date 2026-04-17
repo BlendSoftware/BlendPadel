@@ -58,3 +58,15 @@ type BestPartnerResponse struct {
 	Wins         int32     `json:"wins"`
 	WinRatePct   int32     `json:"win_rate_pct"`
 }
+
+type RequestedUser struct {
+	ID       uuid.UUID `json:"id"`
+	FullName string    `json:"full_name"`
+}
+
+type SentRequestResponse struct {
+	ID            uuid.UUID     `json:"id"`
+	Status        string        `json:"status"`
+	RequestedUser RequestedUser `json:"requested_user"`
+	CreatedAt     time.Time     `json:"created_at"`
+}

@@ -78,7 +78,7 @@ func (s *Service) Register(ctx context.Context, req RegisterRequest) (*db.User, 
 		return nil, fmt.Errorf("hashing password: %w", err)
 	}
 
-	user, err := s.repo.CreateUser(ctx, req.Email, string(hash), req.Name)
+	user, err := s.repo.CreateUser(ctx, req.Email, string(hash), req.Name, req.LastName)
 	if err != nil {
 		return nil, fmt.Errorf("creating user: %w", err)
 	}

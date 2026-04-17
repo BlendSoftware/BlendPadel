@@ -10,6 +10,7 @@ type RegisterRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
+	LastName string `json:"last_name"`
 }
 
 // LoginRequest is the DTO for user login.

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { CheckCircle2 } from 'lucide-react'
 import { useAuthStore } from '@/stores/auth-store'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -220,23 +221,43 @@ export function OnboardingPage() {
                       aria-checked={isSelected}
                       onClick={() => selectOption(opt.value)}
                       className={[
-                        'w-full text-left rounded-xl border px-4 py-4 min-h-[64px]',
-                        'transition-colors duration-150 focus-visible:outline-none',
+                        'w-full text-left rounded-xl border px-5 py-4 min-h-[72px]',
+                        'transition-all duration-300 focus-visible:outline-none',
                         'focus-visible:ring-2 focus-visible:ring-padel-green',
                         isSelected
-                          ? 'border-padel-green bg-padel-green/10'
-                          : 'border-border bg-bg-card hover:border-border/80 hover:bg-bg-input',
+                          ? 'border-padel-green bg-padel-green/10 shadow-[inset_0_0_20px_rgba(215,255,45,0.05),0_0_15px_rgba(215,255,45,0.2)] scale-[1.02] transform'
+                          : 'border-border bg-bg-card hover:border-padel-green/50 hover:bg-bg-input',
                       ].filter(Boolean).join(' ')}
                     >
-                      <p className={[
-                        'font-semibold text-sm',
-                        isSelected ? 'text-padel-green' : 'text-text-primary',
-                      ].join(' ')}>
-                        {opt.label}
-                      </p>
-                      {opt.description && (
-                        <p className="text-xs text-text-secondary mt-0.5">{opt.description}</p>
-                      )}
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className={[
+                            'font-bold text-lg',
+                            isSelected ? 'text-padel-green' : 'text-text-primary',
+                          ].join(' ')}>
+                            {opt.label}
+                          </p>
+                          {opt.description && (
+                            <p className={[
+                              'text-sm mt-1 transition-colors',
+                              isSelected ? 'text-padel-green/80' : 'text-text-secondary',
+                            ].join(' ')}>
+                              {opt.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {isSelected ? (
+                          <div className="flex h-7 items-center justify-center rounded bg-padel-green/20 px-2.5 shadow-[0_0_10px_rgba(215,255,45,0.3)] ring-1 ring-padel-green/50">
+                            <CheckCircle2 size={16} className="text-padel-green mr-1.5" />
+                            <span className="text-[11px] font-black uppercase tracking-widest text-padel-green">
+                              Elegida
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex h-5 w-5 items-center justify-center rounded-full border-2 border-white/10" aria-hidden="true" />
+                        )}
+                      </div>
                     </button>
                   )
                 })}

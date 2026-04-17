@@ -37,7 +37,7 @@ JOIN users u ON u.id = CASE
     ELSE pp.requester_id
 END
 WHERE (pp.requester_id = @player_id OR pp.partner_id = @player_id)
-  AND pp.status = 'accepted'
+  AND pp.status IN ('accepted', 'pending')
 ORDER BY pp.created_at DESC;
 
 -- name: UpdatePartnershipStatus :one

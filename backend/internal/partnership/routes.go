@@ -22,6 +22,7 @@ func RegisterRoutes(r chi.Router, h *Handler, authMw func(http.Handler) http.Han
 		r.Put("/partnerships/{id}/reject", h.RejectPartnership)
 		r.Delete("/partnerships/{id}", h.DissolvePartnership)
 		r.Get("/partnerships/me", h.ListMyPartnerships)
+		r.Get("/partnerships/requests/sent", h.ListSentRequests)
 		r.Get("/partnerships/{id}/stats", h.GetPartnershipStats)
 		r.Get("/players/me/best-partner", h.GetBestPartner)
 	})

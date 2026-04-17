@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Search, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useMatchStore } from '@/stores/match-store'
-import type { PlayerSearchResult } from '../types'
+import type { MatchType, PlayerSearchResult } from '../types'
 
 interface PlayerSearchPickerProps {
   selectedPlayers: PlayerSearchResult[]
@@ -11,6 +11,7 @@ interface PlayerSearchPickerProps {
   onRemove: (playerId: string) => void
   label?: string
   excludeIds?: string[]
+  matchType?: MatchType
 }
 
 export function PlayerSearchPicker({
@@ -20,6 +21,7 @@ export function PlayerSearchPicker({
   onRemove,
   label = 'Buscar jugadores',
   excludeIds = [],
+  matchType,
 }: PlayerSearchPickerProps) {
   const [query, setQuery] = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -32,7 +34,12 @@ export function PlayerSearchPicker({
   const selectedIds = new Set(selectedPlayers.map((p) => p.id))
   const allExcluded = new Set([...excludeIds, ...selectedIds])
 
-  const filteredResults = searchResults.filter((p) => !allExcluded.has(p.id))
+  const filteredResults = searchResults.filter((p) => {
+    if (allExcluded.has(p.id)) return false
+    if (matchType === 'male' && p.gender && p.gender !== 'male') return false
+    if (matchType === 'female' && p.gender && p.gender !== 'female') return false
+    return true
+  })
   const canAdd = selectedPlayers.length < maxPlayers
 
   useEffect(() => {
@@ -50,7 +57,7 @@ export function PlayerSearchPicker({
       return
     }
     debounceRef.current = setTimeout(() => {
-      searchPlayers(value)
+      searchPlayers(value, { excludeIds: Array.from(allExcluded), matchType })
     }, 350)
   }
 
@@ -138,7 +145,7 @@ export function PlayerSearchPicker({
       )}
 
       {/* BUG 8 FIX: Show "no results" feedback when search is done and empty */}
-      {!isSearching && query.trim().length >= 2 && searchResults.length === 0 && (
+      {!isSearching && query.trim().length >= 2 && filteredResults.length === 0 && (
         <p className="text-sm text-text-secondary text-center py-3">
           No se encontraron jugadores para &ldquo;{query}&rdquo;
         </p>

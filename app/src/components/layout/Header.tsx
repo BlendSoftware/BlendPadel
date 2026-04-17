@@ -5,9 +5,10 @@ interface HeaderProps {
   title: string
   showBack?: boolean
   right?: React.ReactNode
+  backTo?: string
 }
 
-export function Header({ title, showBack = false, right }: HeaderProps) {
+export function Header({ title, showBack = false, right, backTo }: HeaderProps) {
   const navigate = useNavigate()
 
   return (
@@ -16,7 +17,13 @@ export function Header({ title, showBack = false, right }: HeaderProps) {
         <div className="flex items-center gap-2 min-w-0">
           {showBack && (
             <button
-              onClick={() => navigate(-1)}
+              onClick={() => {
+                if (backTo) {
+                  navigate(backTo)
+                  return
+                }
+                navigate(-1)
+              }}
               className="flex items-center justify-center min-h-11 min-w-11 -ml-2 text-text-secondary hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
               aria-label="Volver"
             >

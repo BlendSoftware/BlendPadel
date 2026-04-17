@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import api from '@/services/api'
+import { extractApiError } from '@/lib/api-errors'
 import type { Partnership, PairStats, BestPartner } from '@/types'
 
 interface PartnershipState {
@@ -37,7 +38,7 @@ export const usePartnershipStore = create<PartnershipState & PartnershipActions>
       const partnerships = res.data.partnerships ?? []
       set({ partnerships, isLoading: false })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cargar parejas'
+      const message = extractApiError(e, 'Error al cargar parejas')
       set({ error: message, isLoading: false })
     }
   },
@@ -47,8 +48,11 @@ export const usePartnershipStore = create<PartnershipState & PartnershipActions>
     try {
       const res = await api.post<Partnership>('/partnerships', { partner_id: partnerId })
       set((s) => ({ partnerships: [res.data, ...s.partnerships], isActionLoading: false }))
+      // Recarga para obtener partner_name y estados consistentes desde backend.
+      const refreshed = await api.get<{ partnerships: Partnership[] }>('/partnerships/me')
+      set({ partnerships: refreshed.data.partnerships ?? [] })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al enviar solicitud'
+      const message = extractApiError(e, 'Error al enviar solicitud')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -65,7 +69,7 @@ export const usePartnershipStore = create<PartnershipState & PartnershipActions>
         isActionLoading: false,
       }))
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al aceptar solicitud'
+      const message = extractApiError(e, 'Error al aceptar solicitud')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -80,7 +84,7 @@ export const usePartnershipStore = create<PartnershipState & PartnershipActions>
         isActionLoading: false,
       }))
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al rechazar solicitud'
+      const message = extractApiError(e, 'Error al rechazar solicitud')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -95,7 +99,7 @@ export const usePartnershipStore = create<PartnershipState & PartnershipActions>
         isActionLoading: false,
       }))
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al disolver pareja'
+      const message = extractApiError(e, 'Error al disolver pareja')
       set({ error: message, isActionLoading: false })
       throw e
     }

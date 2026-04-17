@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, User } from 'lucide-react'
+import { Mail, Lock, User, AlertCircle } from 'lucide-react'
 import { isAxiosError } from 'axios'
 import { useAuthStore } from '@/stores/auth-store'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import styles from './AuthPage.module.css'
 
 // ─── Validation ────────────────────────────────────────────────────────────────
 
@@ -14,37 +13,26 @@ const DIGIT_RE = /[0-9]/
 
 interface FieldErrors {
   name?: string
+  last_name?: string
   email?: string
   password?: string
   confirm_password?: string
 }
 
-function validate(
-  form: { name: string; email: string; password: string; confirm_password: string },
-): FieldErrors {
-  const errors: FieldErrors = {}
-
-  if (!form.name.trim()) {
-    errors.name = 'El nombre es obligatorio.'
-  }
-  if (!EMAIL_RE.test(form.email)) {
-    errors.email = 'Ingresá un email válido.'
-  }
-  if (form.password.length < 8) {
-    errors.password = 'Mínimo 8 caracteres.'
-  } else if (!UPPER_RE.test(form.password)) {
-    errors.password = 'Necesita al menos una mayúscula.'
-  } else if (!DIGIT_RE.test(form.password)) {
-    errors.password = 'Necesita al menos un número.'
-  }
-  if (form.confirm_password !== form.password) {
-    errors.confirm_password = 'Las contraseñas no coinciden.'
-  }
-
-  return errors
+function validate(form: {
+  name: string; last_name: string; email: string
+  password: string; confirm_password: string
+}): FieldErrors {
+  const e: FieldErrors = {}
+  if (!form.name.trim())             e.name           = 'El nombre es obligatorio.'
+  if (!form.last_name.trim())        e.last_name      = 'El apellido es obligatorio.'
+  if (!EMAIL_RE.test(form.email))    e.email          = 'Ingresá un email válido.'
+  if (form.password.length < 8)      e.password       = 'Mínimo 8 caracteres.'
+  else if (!UPPER_RE.test(form.password)) e.password  = 'Necesita al menos una mayúscula.'
+  else if (!DIGIT_RE.test(form.password)) e.password  = 'Necesita al menos un número.'
+  if (form.confirm_password !== form.password) e.confirm_password = 'Las contraseñas no coinciden.'
+  return e
 }
-
-// ─── Server error mapping ──────────────────────────────────────────────────────
 
 function mapRegisterError(err: unknown): string {
   if (isAxiosError(err)) {
@@ -61,44 +49,28 @@ export function RegisterPage() {
   const navigate = useNavigate()
   const register = useAuthStore((s) => s.register)
 
-  const [loading, setLoading] = useState(false)
+  const [loading,     setLoading]     = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({})
   const [form, setForm] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirm_password: '',
+    name: '', last_name: '', email: '', password: '', confirm_password: '',
   })
 
-  function handleChange(field: keyof typeof form) {
+  function handle(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
       setForm((prev) => ({ ...prev, [field]: e.target.value }))
-      // Clear field error on change
-      if (fieldErrors[field]) {
-        setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
-      }
+      if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
     }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setServerError(null)
-
     const errors = validate(form)
-    if (Object.keys(errors).length > 0) {
-      setFieldErrors(errors)
-      return
-    }
-
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
     setLoading(true)
     try {
-      await register({
-        email: form.email,
-        password: form.password,
-        name: form.name,
-      })
-      // Navigate to login — user must log in explicitly after registering
+      await register({ email: form.email, password: form.password, name: form.name, last_name: form.last_name })
       navigate('/login', { replace: true, state: { registered: true } })
     } catch (err) {
       setServerError(mapRegisterError(err))
@@ -108,87 +80,143 @@ export function RegisterPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-bg-dark flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-sm space-y-8">
-        <div className="text-center space-y-2">
-          <div className="text-padel-green text-5xl font-black tracking-tight">BP</div>
-          <h1 className="text-2xl font-bold text-text-primary">Crear cuenta</h1>
-          <p className="text-text-secondary text-sm">Sumate a la comunidad</p>
+    <div className={styles.page}>
+      <div className={styles.card}>
+        {/* ── Brand ── */}
+        <div className={styles.brand}>
+          <div className={styles.logoMark}>
+            <span className={styles.logoText}>BP</span>
+          </div>
+          <h1 className={styles.brandName}>BlendPadel</h1>
+          <p className={styles.brandTagline}>Sumate a la comunidad</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          {serverError && (
-            <div
-              role="alert"
-              className="bg-trust-low/10 border border-trust-low/30 rounded-xl px-4 py-3 text-sm text-trust-low"
-            >
-              {serverError}
+        <p className={styles.formTitle}>Crear cuenta nueva</p>
+
+        {/* ── Error ── */}
+        {serverError && (
+          <div className={styles.errorAlert} role="alert">
+            <AlertCircle size={16} className={styles.errorIcon} />
+            <p className={styles.errorText}>{serverError}</p>
+          </div>
+        )}
+
+        {/* ── Form ── */}
+        <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          {/* Nombre + Apellido en fila */}
+          <div className={styles.fieldRow}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="reg-name">Nombre</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon}><User size={14} /></span>
+                <input
+                  id="reg-name"
+                  className={`${styles.input} ${fieldErrors.name ? styles.inputError : ''}`}
+                  type="text"
+                  value={form.name}
+                  onChange={handle('name')}
+                  placeholder="Juan"
+                  required
+                  autoComplete="given-name"
+                />
+              </div>
+              {fieldErrors.name && <p className={styles.fieldError}>{fieldErrors.name}</p>}
             </div>
-          )}
 
-          <Input
-            label="Nombre"
-            type="text"
-            value={form.name}
-            onChange={handleChange('name')}
-            placeholder="Juan"
-            icon={<User size={16} />}
-            required
-            autoComplete="name"
-            error={fieldErrors.name}
-          />
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="reg-last">Apellido</label>
+              <div className={styles.inputWrap}>
+                <span className={styles.inputIcon}><User size={14} /></span>
+                <input
+                  id="reg-last"
+                  className={`${styles.input} ${fieldErrors.last_name ? styles.inputError : ''}`}
+                  type="text"
+                  value={form.last_name}
+                  onChange={handle('last_name')}
+                  placeholder="Perez"
+                  required
+                  autoComplete="family-name"
+                />
+              </div>
+              {fieldErrors.last_name && <p className={styles.fieldError}>{fieldErrors.last_name}</p>}
+            </div>
+          </div>
 
-          <Input
-            label="Email"
-            type="email"
-            value={form.email}
-            onChange={handleChange('email')}
-            placeholder="tu@email.com"
-            icon={<Mail size={16} />}
-            required
-            autoComplete="email"
-            autoCapitalize="none"
-            error={fieldErrors.email}
-          />
+          {/* Email */}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="reg-email">Email</label>
+            <div className={styles.inputWrap}>
+              <span className={styles.inputIcon}><Mail size={15} /></span>
+              <input
+                id="reg-email"
+                className={`${styles.input} ${fieldErrors.email ? styles.inputError : ''}`}
+                type="email"
+                value={form.email}
+                onChange={handle('email')}
+                placeholder="tu@email.com"
+                required
+                autoComplete="email"
+                autoCapitalize="none"
+              />
+            </div>
+            {fieldErrors.email && <p className={styles.fieldError}>{fieldErrors.email}</p>}
+          </div>
 
-          <Input
-            label="Contraseña"
-            type="password"
-            value={form.password}
-            onChange={handleChange('password')}
-            placeholder="Mínimo 8 caracteres"
-            icon={<Lock size={16} />}
-            required
-            autoComplete="new-password"
-            hint="Mínimo 8 caracteres, 1 mayúscula y 1 número"
-            error={fieldErrors.password}
-          />
+          {/* Contraseña */}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="reg-pass">Contraseña</label>
+            <div className={styles.inputWrap}>
+              <span className={styles.inputIcon}><Lock size={15} /></span>
+              <input
+                id="reg-pass"
+                className={`${styles.input} ${fieldErrors.password ? styles.inputError : ''}`}
+                type="password"
+                value={form.password}
+                onChange={handle('password')}
+                placeholder="Mínimo 8 caracteres"
+                required
+                autoComplete="new-password"
+              />
+            </div>
+            {fieldErrors.password
+              ? <p className={styles.fieldError}>{fieldErrors.password}</p>
+              : <p className={styles.hint}>8 caracteres mínimo, 1 mayúscula y 1 número</p>}
+          </div>
 
-          <Input
-            label="Confirmar contraseña"
-            type="password"
-            value={form.confirm_password}
-            onChange={handleChange('confirm_password')}
-            placeholder="Repetí tu contraseña"
-            icon={<Lock size={16} />}
-            required
-            autoComplete="new-password"
-            error={fieldErrors.confirm_password}
-          />
+          {/* Confirmar contraseña */}
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="reg-confirm">Confirmar contraseña</label>
+            <div className={styles.inputWrap}>
+              <span className={styles.inputIcon}><Lock size={15} /></span>
+              <input
+                id="reg-confirm"
+                className={`${styles.input} ${fieldErrors.confirm_password ? styles.inputError : ''}`}
+                type="password"
+                value={form.confirm_password}
+                onChange={handle('confirm_password')}
+                placeholder="Repetí tu contraseña"
+                required
+                autoComplete="new-password"
+              />
+            </div>
+            {fieldErrors.confirm_password && <p className={styles.fieldError}>{fieldErrors.confirm_password}</p>}
+          </div>
 
-          <Button type="submit" loading={loading} fullWidth size="lg">
-            Crear cuenta
-          </Button>
+          {/* Submit */}
+          <button
+            type="submit"
+            className={styles.submitBtn}
+            disabled={loading}
+          >
+            {loading
+              ? <><span className={styles.btnSpinner} /> Creando cuenta…</>
+              : 'Crear cuenta'}
+          </button>
         </form>
 
-        <p className="text-center text-sm text-text-secondary">
+        <p className={styles.bottomText}>
           ¿Ya tenés cuenta?{' '}
-          <Link
-            to="/login"
-            className="text-padel-green font-medium hover:text-padel-green-dark transition-colors focus-visible:outline-none focus-visible:underline"
-          >
-            Ingresá
-          </Link>
+          <Link to="/login" className={styles.bottomLink}>Ingresá</Link>
         </p>
       </div>
     </div>

@@ -1,6 +1,5 @@
-import { create } from 'zustand'
+﻿import { create } from 'zustand'
 import api from '@/services/api'
-import { useAuthStore } from '@/stores/auth-store'
 import type { Flare, CreateFlareDTO } from '@/features/matchmaking/types'
 
 interface MatchmakingFilters {
@@ -51,13 +50,13 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       const data = Array.isArray(res.data) ? res.data : (res.data.items ?? res.data.Items ?? [])
       set({ flares: data, isLoading: false })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cargar desafíos'
+      const message = e instanceof Error ? e.message : 'Error al cargar desafÃ­os'
       set({ error: message, isLoading: false })
     }
   },
 
   fetchMyFlare: async () => {
-    // Always fetch from backend — don't use cached value (user may have switched accounts)
+    // Always fetch from backend â€” don't use cached value (user may have switched accounts)
     try {
       const res = await api.get<Flare | null>('/matchmaking/flares/mine')
       set({ myFlare: res.data ?? null })
@@ -80,8 +79,8 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
     } catch (e: any) {
       const status = e?.response?.status
       const message = status === 409
-        ? 'Ya tenés un desafío activo. Cancelalo antes de crear uno nuevo.'
-        : (e instanceof Error ? e.message : 'Error al crear desafío')
+        ? 'Ya tenÃ©s un desafÃ­o activo. Cancelalo antes de crear uno nuevo.'
+        : (e instanceof Error ? e.message : 'Error al crear desafÃ­o')
       set({ error: message, isLoading: false })
       throw e
     }
@@ -96,7 +95,7 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       await get().fetchFlares()
       set({ isLoading: false })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al aceptar desafío'
+      const message = e instanceof Error ? e.message : 'Error al aceptar desafÃ­o'
       set({ error: message, isLoading: false })
       throw e
     }
@@ -110,7 +109,7 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       // Also remove from wall
       set((s) => ({ flares: s.flares.filter((f) => f.id !== flareId) }))
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cancelar desafío'
+      const message = e instanceof Error ? e.message : 'Error al cancelar desafÃ­o'
       set({ error: message, isLoading: false })
       throw e
     }
@@ -121,3 +120,5 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
 window.addEventListener('auth:user-changed', () => {
   useMatchmakingStore.setState({ flares: [], myFlare: null, error: null })
 })
+
+

@@ -24,6 +24,7 @@ export interface RegisterData {
   email: string
   password: string
   name: string
+  last_name: string
 }
 
 const initialState: AuthState = {

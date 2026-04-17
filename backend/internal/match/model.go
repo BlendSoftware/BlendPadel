@@ -43,6 +43,7 @@ var (
 	ErrDisputeAlreadyExists   = errors.New("dispute already exists for this match")
 	ErrNotCaptain             = errors.New("caller is not a captain of this match")
 	ErrInvalidMatchType       = errors.New("invalid match_type; allowed: male, female, mixed")
+	ErrGenderMismatch         = errors.New("gender mismatch for selected match type")
 	ErrInvalidTeamComposition = errors.New("team composition does not match the match type")
 	ErrMatchNotCancellable    = errors.New("match cannot be cancelled in its current status")
 )

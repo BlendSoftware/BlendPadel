@@ -1,0 +1,238 @@
+/* ═══════════════════════════════════════════════════════
+   FeedPage — Premium CSS Module
+   ═══════════════════════════════════════════════════════ */
+
+.page { display: flex; flex-direction: column; min-height: 100%; }
+
+/* ─── Top bar ─────────────────────────────────────────── */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 0;
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 6vw, 3.5rem);
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #fff;
+  margin: 0;
+  line-height: 1;
+}
+
+.kicker {
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: var(--accent-fluo);
+  margin: 0 0 3px 2px;
+}
+
+/* ─── Body ────────────────────────────────────────────── */
+.body {
+  flex: 1;
+  padding: 20px 20px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ─── Loading ─────────────────────────────────────────── */
+.loadingWrap {
+  display: flex;
+  justify-content: center;
+  padding: 60px 0;
+}
+
+/* ─── Error ───────────────────────────────────────────── */
+.errorWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.errorText {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  color: #ff8080;
+  margin: 0;
+}
+
+.retryBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: rgba(255,100,100,0.08);
+  border: 1px solid rgba(255,100,100,0.2);
+  border-radius: 10px;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #ff8080;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.retryBtn:hover { background: rgba(255,100,100,0.14); }
+
+/* ─── Empty state ─────────────────────────────────────── */
+.emptyWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 60px 24px;
+  text-align: center;
+}
+
+.emptyIconWrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: rgba(215,255,45,0.06);
+  border: 1px solid rgba(215,255,45,0.14);
+  display: grid;
+  place-items: center;
+  color: rgba(215,255,45,0.45);
+}
+
+.emptyTitle {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.6);
+  margin: 0;
+}
+
+.emptySubtitle {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.28);
+  margin: 0;
+  max-width: 28ch;
+  line-height: 1.5;
+}
+
+/* ─── Feed item card ──────────────────────────────────── */
+@keyframes feedEnter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.feedItem {
+  background: rgba(14,14,14,0.88);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 18px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  animation: feedEnter 0.28s ease both;
+  contain: layout style paint;
+  transition: border-color 0.18s ease, background 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.feedItem:hover {
+  border-color: rgba(215,255,45,0.12);
+  background: rgba(20,20,20,0.9);
+}
+
+/* Accent left strip */
+.feedItemAccent {
+  position: absolute;
+  top: 16%;
+  bottom: 16%;
+  left: 0;
+  width: 2px;
+  background: var(--accent-fluo);
+  border-radius: 0 3px 3px 0;
+  opacity: 0.5;
+}
+
+/* Event emoji */
+.eventEmoji {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  flex-shrink: 0;
+}
+
+/* Text block */
+.feedItemBody { flex: 1; min-width: 0; }
+
+.feedItemText {
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  color: rgba(255,255,255,0.75);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.feedItemName { font-weight: 700; color: #fff; }
+
+.feedItemTime {
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.28);
+  margin: 4px 0 0;
+}
+
+/* Event type badge (right side) */
+.eventTypeBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.badgeStreak {
+  background: rgba(255,180,0,0.1);
+  color: #ffb400;
+  border: 1px solid rgba(255,180,0,0.22);
+}
+
+.badgeMilestone {
+  background: rgba(215,255,45,0.09);
+  color: var(--accent-fluo);
+  border: 1px solid rgba(215,255,45,0.22);
+}
+
+.badgeDefault {
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.35);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+/* ─── Section header ──────────────────────────────────── */
+.sectionLabel {
+  font-family: var(--font-body);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  color: rgba(255,255,255,0.28);
+  margin: 4px 0 0 2px;
+}

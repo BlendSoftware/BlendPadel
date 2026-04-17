@@ -10,7 +10,7 @@ import (
 
 // Repository defines the persistence operations needed by the auth service.
 type Repository interface {
-	CreateUser(ctx context.Context, email, passwordHash, name string) (*db.User, error)
+	CreateUser(ctx context.Context, email, passwordHash, name, lastName string) (*db.User, error)
 	GetUserByEmail(ctx context.Context, email string) (*db.User, error)
 	GetUserByID(ctx context.Context, userID uuid.UUID) (*db.User, error)
 	UpdatePassword(ctx context.Context, userID uuid.UUID, newHash string) error

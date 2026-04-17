@@ -1,9 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, RefreshCw, Zap } from 'lucide-react'
-import { Header } from '@/components/layout/Header'
-import { Button } from '@/components/ui/Button'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { Plus, RefreshCw, Zap, X } from 'lucide-react'
 import { SkeletonList } from '@/components/ui/Skeleton'
 import { FlareCard } from './components/FlareCard'
 import { MatchCard } from './components/MatchCard'
@@ -13,12 +10,14 @@ import { useAuthStore } from '@/stores/auth-store'
 import type { Flare } from './types'
 import type { MatchTab } from '@/stores/match-store'
 
+import styles from './MatchmakingPage.module.css'
+
 // ─── My Flare section ─────────────────────────────────────────────────────────
 
 function MyFlareSection() {
-  const navigate = useNavigate()
-  const myFlare = useMatchmakingStore((s) => s.myFlare)
-  const isLoading = useMatchmakingStore((s) => s.isLoading)
+  const navigate   = useNavigate()
+  const myFlare    = useMatchmakingStore((s) => s.myFlare)
+  const isLoading  = useMatchmakingStore((s) => s.isLoading)
   const cancelFlare = useMatchmakingStore((s) => s.cancelFlare)
 
   const handleCancel = async () => {
@@ -28,44 +27,55 @@ function MyFlareSection() {
   }
 
   if (myFlare) {
+    const dateStr = new Date(myFlare.scheduled_at).toLocaleDateString('es-AR', {
+      weekday: 'short', day: 'numeric', month: 'short',
+      hour: '2-digit', minute: '2-digit', hour12: false,
+    })
+
     return (
-      <div className="bg-padel-green/10 border border-padel-green/30 rounded-xl p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <Zap size={14} className="text-padel-green" aria-hidden="true" />
-          <p className="text-sm font-semibold text-padel-green">Tu desafío activo</p>
+      <div className={styles.myFlareCard}>
+        <div className={styles.myFlareHeader}>
+          <span className={styles.myFlareDot} />
+          <p className={styles.myFlareTitle}>Tu desafío activo</p>
         </div>
-        <p className="text-sm text-text-secondary line-clamp-2">{myFlare.message}</p>
-        <p className="text-xs text-text-secondary">
-          {new Date(myFlare.scheduled_at).toLocaleDateString('es-AR', {
-            weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
-          })}
-        </p>
-        <Button variant="danger" size="sm" loading={isLoading} onClick={handleCancel}>
+        <p className={styles.myFlareMsg}>{myFlare.message}</p>
+        <p className={styles.myFlareDate}>{dateStr}</p>
+        <button
+          className={styles.cancelBtn}
+          onClick={handleCancel}
+          disabled={isLoading}
+        >
+          <X size={13} />
           Cancelar desafío
-        </Button>
+        </button>
       </div>
     )
   }
 
   return (
-    <Button variant="outline" fullWidth onClick={() => navigate('/matchmaking/create-flare')}>
-      <Zap size={16} aria-hidden="true" />
-      Crear desafío
-    </Button>
+    <button className={styles.ctaCard} onClick={() => navigate('/matchmaking/create-flare')}>
+      <div className={styles.ctaContent}>
+        <p className={styles.ctaLabel}>Nuevo desafío</p>
+        <h2 className={styles.ctaTitle}>CREAR<br />DESAFÍO</h2>
+        <p className={styles.ctaDesc}>Convocá rivales de tu nivel ELO</p>
+      </div>
+      <div className={styles.ctaBtn}>
+        <Zap size={22} strokeWidth={2.5} />
+      </div>
+    </button>
   )
 }
 
 // ─── Flare wall ───────────────────────────────────────────────────────────────
 
 function FlareWall() {
-  const navigate = useNavigate()
-  const flares = useMatchmakingStore((s) => s.flares)
-  const isLoading = useMatchmakingStore((s) => s.isLoading)
-  const error = useMatchmakingStore((s) => s.error)
+  const navigate    = useNavigate()
+  const flares      = useMatchmakingStore((s) => s.flares)
+  const isLoading   = useMatchmakingStore((s) => s.isLoading)
+  const error       = useMatchmakingStore((s) => s.error)
   const fetchFlares = useMatchmakingStore((s) => s.fetchFlares)
-  const user = useAuthStore((s) => s.user)
+  const user        = useAuthStore((s) => s.user)
 
-  // Filter out own flares from the wall (backend may use user_id or player_id)
   const otherFlares = flares.filter((f) => f.user_id !== user?.id && f.player_id !== user?.id)
 
   const handleRespond = (flare: Flare) => {
@@ -78,89 +88,74 @@ function FlareWall() {
 
   if (error) {
     return (
-      <div className="text-center py-8 space-y-3">
-        <p className="text-sm text-trust-low">{error}</p>
-        <Button variant="ghost" size="sm" onClick={fetchFlares}>
-          <RefreshCw size={14} aria-hidden="true" />
-          Reintentar
-        </Button>
+      <div className={styles.errorWrap}>
+        <p className={styles.errorText}>{error}</p>
+        <button className={styles.retryBtn} onClick={fetchFlares}>
+          <RefreshCw size={13} /> Reintentar
+        </button>
       </div>
     )
   }
 
   if (otherFlares.length === 0) {
     return (
-      <EmptyState
-        icon={<Zap size={36} />}
-        title="Sin desafíos en tu zona"
-        subtitle="Creá uno y encontrá compañeros de partido"
-        action={
-          <Button size="sm" onClick={() => navigate('/matchmaking/create-flare')}>
-            <Plus size={14} aria-hidden="true" />
-            Crear desafío
-          </Button>
-        }
-      />
+      <div className={styles.emptyWrap}>
+        <div className={styles.emptyIconWrap}>
+          <Zap size={32} />
+        </div>
+        <p className={styles.emptyTitle}>Sin desafíos en tu zona</p>
+        <p className={styles.emptySubtitle}>Creá uno y encontrá compañeros de partido</p>
+        <button className={styles.emptyAction} onClick={() => navigate('/matchmaking/create-flare')}>
+          <Plus size={14} /> Crear desafío
+        </button>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-3">
+    <div className={styles.flareList}>
       {otherFlares.map((flare) => (
-        <FlareCard
-          key={flare.id}
-          flare={flare}
-          onRespond={handleRespond}
-          isResponding={false}
-        />
+        <FlareCard key={flare.id} flare={flare} onRespond={handleRespond} />
       ))}
     </div>
   )
 }
 
-// ─── My matches section ───────────────────────────────────────────────────────
+// ─── My Matches section ───────────────────────────────────────────────────────
 
 const MATCH_TABS: { key: MatchTab; label: string }[] = [
-  { key: 'upcoming', label: 'Próximos' },
-  { key: 'pending', label: 'Pendientes' },
-  { key: 'history', label: 'Historial' },
+  { key: 'upcoming',  label: 'Próximos' },
+  { key: 'pending',   label: 'Pendientes' },
+  { key: 'history',   label: 'Historial' },
 ]
 
 function MyMatchesSection() {
-  const activeTab = useMatchStore((s) => s.activeTab)
-  const matches = useMatchStore((s) => s.matches)
-  const isLoading = useMatchStore((s) => s.isLoading)
-  const fetchMatches = useMatchStore((s) => s.fetchMatches)
-  const setActiveTab = useMatchStore((s) => s.setActiveTab)
+  const activeTab     = useMatchStore((s) => s.activeTab)
+  const matches       = useMatchStore((s) => s.matches)
+  const isLoading     = useMatchStore((s) => s.isLoading)
+  const fetchMatches  = useMatchStore((s) => s.fetchMatches)
+  const setActiveTab  = useMatchStore((s) => s.setActiveTab)
 
-  useEffect(() => {
-    fetchMatches()
-  }, [fetchMatches])
+  useEffect(() => { fetchMatches() }, [fetchMatches])
 
-  const handleTabChange = (tab: MatchTab) => {
-    setActiveTab(tab)
-  }
-
-  // Filter matches by the active tab
   const filteredMatches = filterMatchesByTab(matches, activeTab)
 
+  const emptySubtitle =
+    activeTab === 'upcoming'  ? 'Creá un partido o respondé un desafío' :
+    activeTab === 'pending'   ? 'No tenés partidos pendientes de resultado' :
+    'Tu historial de partidos aparecerá acá'
+
   return (
-    <div className="space-y-4">
-      {/* Tab bar */}
-      <div className="flex gap-1 bg-bg-card rounded-xl p-1" role="tablist">
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Sub-tab bar */}
+      <div className={styles.subTabs}>
         {MATCH_TABS.map(({ key, label }) => (
           <button
             key={key}
+            className={`${styles.subTab} ${activeTab === key ? styles.subTabActive : ''}`}
+            onClick={() => setActiveTab(key)}
             role="tab"
             aria-selected={activeTab === key}
-            className={[
-              'flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-colors min-h-11',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green',
-              activeTab === key
-                ? 'bg-padel-green text-neutral-950'
-                : 'text-text-secondary hover:text-text-primary',
-            ].join(' ')}
-            onClick={() => handleTabChange(key)}
           >
             {label}
           </button>
@@ -171,19 +166,15 @@ function MyMatchesSection() {
       {isLoading && matches.length === 0 ? (
         <SkeletonList count={3} variant="match" />
       ) : filteredMatches.length === 0 ? (
-        <EmptyState
-          icon={<Plus size={32} />}
-          title="Sin partidos"
-          subtitle={
-            activeTab === 'upcoming'
-              ? 'Creá un partido o respondé un desafío'
-              : activeTab === 'pending'
-              ? 'No tenés partidos pendientes'
-              : 'Tu historial aparecerá acá'
-          }
-        />
+        <div className={styles.emptyWrap}>
+          <div className={styles.emptyIconWrap}>
+            <Plus size={28} />
+          </div>
+          <p className={styles.emptyTitle}>Sin partidos</p>
+          <p className={styles.emptySubtitle}>{emptySubtitle}</p>
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filteredMatches.map((match) => (
             <MatchCard key={match.id} match={match} />
           ))}
@@ -193,88 +184,82 @@ function MyMatchesSection() {
   )
 }
 
-// ─── Top-level tabs ───────────────────────────────────────────────────────────
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 type MainTab = 'matchmaking' | 'my-matches'
 
-const MAIN_TABS: { key: MainTab; label: string }[] = [
-  { key: 'matchmaking', label: 'Desafíos' },
-  { key: 'my-matches', label: 'Mis partidos' },
-]
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
 export function MatchmakingPage() {
-  const navigate = useNavigate()
-  const fetchFlares = useMatchmakingStore((s) => s.fetchFlares)
-  const fetchMyFlare = useMatchmakingStore((s) => s.fetchMyFlare)
+  const navigate      = useNavigate()
+  const fetchFlares   = useMatchmakingStore((s) => s.fetchFlares)
+  const fetchMyFlare  = useMatchmakingStore((s) => s.fetchMyFlare)
+  const isLoading     = useMatchmakingStore((s) => s.isLoading)
 
-  const [mainTab, setMainTab] = useState<MainTab>('matchmaking')
+  const [mainTab, setMainTab]   = useState<MainTab>('matchmaking')
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     fetchFlares()
     fetchMyFlare()
   }, [fetchFlares, fetchMyFlare])
 
-  const handleRefresh = () => {
-    if (mainTab === 'matchmaking') fetchFlares()
-  }
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    if (mainTab === 'matchmaking') await fetchFlares()
+    setTimeout(() => setRefreshing(false), 700)
+  }, [mainTab, fetchFlares])
 
   return (
-    <div className="flex flex-col min-h-full page-enter">
-      <Header
-        title="Partidos"
-        right={
-          <div className="flex items-center gap-1">
-            <button
-              onClick={handleRefresh}
-              className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-padel-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
-              aria-label="Actualizar"
-            >
-              <RefreshCw size={18} aria-hidden="true" />
-            </button>
-            <button
-              onClick={() => navigate('/matchmaking/new')}
-              className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-padel-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
-              aria-label="Crear partido directo"
-            >
-              <Plus size={20} aria-hidden="true" />
-            </button>
-          </div>
-        }
-      />
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Top bar ── */}
+      <div className={styles.topBar}>
+        <h1 className={styles.pageTitle}>Partidos</h1>
+        <div className={styles.topActions}>
+          <button
+            className={`${styles.iconBtn} ${refreshing ? styles.spinning : ''}`}
+            onClick={handleRefresh}
+            aria-label="Actualizar"
+            title="Actualizar"
+          >
+            <RefreshCw size={17} />
+          </button>
+          <button
+            className={`${styles.iconBtn} ${styles.iconBtnPrimary}`}
+            onClick={() => navigate('/matchmaking/new')}
+            aria-label="Crear partido"
+            title="Crear partido"
+          >
+            <Plus size={20} />
+          </button>
+        </div>
+      </div>
 
-      <div className="px-4 pt-4 space-y-5 pb-24">
-        {/* Main tab switcher */}
-        <div className="flex gap-1 bg-bg-card rounded-xl p-1" role="tablist">
-          {MAIN_TABS.map(({ key, label }) => (
-            <button
-              key={key}
-              role="tab"
-              aria-selected={mainTab === key}
-              className={[
-                'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-colors min-h-11',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green',
-                // BUG 7 FIX: Use explicit dark color for active tab text on green background
-              mainTab === key
-                  ? 'bg-padel-green text-neutral-950'
-                  : 'text-text-secondary hover:text-text-primary',
-              ].join(' ')}
-              onClick={() => setMainTab(key)}
-            >
-              {label}
-            </button>
-          ))}
+      <div className={styles.body}>
+        {/* ── Main tabs ── */}
+        <div className={styles.mainTabs} role="tablist">
+          <button
+            className={`${styles.mainTab} ${mainTab === 'matchmaking' ? styles.mainTabActive : ''}`}
+            role="tab"
+            aria-selected={mainTab === 'matchmaking'}
+            onClick={() => setMainTab('matchmaking')}
+          >
+            Desafíos
+          </button>
+          <button
+            className={`${styles.mainTab} ${mainTab === 'my-matches' ? styles.mainTabActive : ''}`}
+            role="tab"
+            aria-selected={mainTab === 'my-matches'}
+            onClick={() => setMainTab('my-matches')}
+          >
+            Mis partidos
+          </button>
         </div>
 
-        {/* Content */}
+        {/* ── Content ── */}
         {mainTab === 'matchmaking' ? (
-          <div className="space-y-5">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <MyFlareSection />
             <div>
-              <p className="text-xs font-semibold text-text-secondary uppercase tracking-wider mb-3">
-                Desafíos en tu zona
-              </p>
+              <p className={styles.sectionLabel}>Desafíos en tu zona</p>
               <FlareWall />
             </div>
           </div>

@@ -59,13 +59,13 @@ func ValidateTeamComposition(matchType string, teamA, teamB []uuid.UUID, genders
 	case MatchTypeMale:
 		for _, pid := range append(teamA, teamB...) {
 			if genders[pid] != "male" {
-				return fmt.Errorf("%w: all players must be male for a male match", ErrInvalidTeamComposition)
+				return fmt.Errorf("%w: cannot add female players to a male match", ErrGenderMismatch)
 			}
 		}
 	case MatchTypeFemale:
 		for _, pid := range append(teamA, teamB...) {
 			if genders[pid] != "female" {
-				return fmt.Errorf("%w: all players must be female for a female match", ErrInvalidTeamComposition)
+				return fmt.Errorf("%w: cannot add male players to a female match", ErrGenderMismatch)
 			}
 		}
 	case MatchTypeMixed:

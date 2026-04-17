@@ -91,6 +91,7 @@ export interface CreateMatchDTO {
   latitude: number | null
   longitude: number | null
   match_type?: MatchType
+  venue_id?: string
 }
 
 export interface PlayerSearchResult {
@@ -98,4 +99,5 @@ export interface PlayerSearchResult {
   name: string
   avatar_url?: string
   elo: number
+  gender?: 'male' | 'female' | 'other'
 }

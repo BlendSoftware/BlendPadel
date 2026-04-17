@@ -1,94 +1,580 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  MapPin,
+  Navigation,
+  Compass,
+  Plus,
+  Activity,
+  RefreshCw,
+  SlidersHorizontal,
+  X,
+  ChevronUp,
+  Clock,
+  Users,
+  Zap,
+  Target,
+  ArrowRight,
+  AlertCircle,
+  TrendingUp,
+  Shield,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { MapPin, List, Map } from 'lucide-react'
 import 'leaflet/dist/leaflet.css'
 
-import { Header } from '@/components/layout/Header'
 import { Spinner } from '@/components/ui/Spinner'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-
+import { useRadarStore } from '@/stores/radar-store'
+import type { PadelCourt, RadarMatch, ELORange, RadiusOption } from '@/types/radar'
 import { CourtsMap } from './components/CourtsMap'
 
-import { useRadarStore } from '@/stores/radar-store'
-import type { UserLocation, PadelCourt } from '@/types/radar'
+import styles from './RadarPage.module.css'
 
-// Mendoza default
-const MENDOZA: UserLocation = { lat: -33.35, lng: -68.33 }
+// ─── Constants ────────────────────────────────────────────────────────────────
+const MENDOZA = { lat: -33.35, lng: -68.33 }
+const RADIUS_OPTIONS: RadiusOption[] = [5, 10, 15, 25]
+const ELO_MIN = 400
+const ELO_MAX = 2000
 
+// ─── Animation variants (mount-only, not per-item) ───────────────────────────
+const fadeUp = {
+  hidden:  { opacity: 0, y: 24 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] } },
+}
+
+// ─── ELO helpers ─────────────────────────────────────────────────────────────
+function eloLabel(elo: number): string {
+  if (elo < 700)  return 'Rookie'
+  if (elo < 900)  return 'Amateur'
+  if (elo < 1100) return 'Intermedio'
+  if (elo < 1300) return 'Avanzado'
+  if (elo < 1500) return 'Elite'
+  return 'Pro'
+}
+
+function eloColor(elo: number): string {
+  if (elo < 700)  return '#888'
+  if (elo < 900)  return '#64b5f6'
+  if (elo < 1100) return '#81c784'
+  if (elo < 1300) return '#d7ff2d'
+  if (elo < 1500) return '#ffb74d'
+  return '#f06292'
+}
+
+function eloPct(elo: number): number {
+  return Math.min(100, Math.max(0, ((elo - ELO_MIN) / (ELO_MAX - ELO_MIN)) * 100))
+}
+
+// ─── PlayerSlots ─────────────────────────────────────────────────────────────
+function PlayerSlots({
+  confirmed,
+  max,
+}: {
+  confirmed: number
+  max: number
+}) {
+  return (
+    <div className={styles.playerSlots}>
+      {Array.from({ length: max }).map((_, i) => (
+        <div
+          key={i}
+          className={`${styles.playerSlot} ${i < confirmed ? styles.playerSlotFilled : ''}`}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── MatchCard — pure CSS animations (no Framer Motion per-card) ──────────────
+function MatchCard({
+  match,
+  onClick,
+  index,
+}: {
+  match: RadarMatch
+  onClick: () => void
+  index: number
+}) {
+  const slotsLeft = match.players_needed - match.players_confirmed
+  const isUrgent  = slotsLeft === 1
+  const isFull    = slotsLeft === 0
+  const color     = eloColor(match.elo_avg)
+
+  const time = new Date(match.scheduled_at).toLocaleTimeString('es-AR', {
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+
+  return (
+    <button
+      className={`${styles.matchCard} ${isUrgent ? styles.matchCardUrgent : ''} ${isFull ? styles.matchCardFull : ''}`}
+      style={{
+        animationDelay: `${index * 60}ms`,
+        '--elo-color': color,
+        '--elo-pct': `${eloPct(match.elo_avg)}%`,
+      } as React.CSSProperties}
+      onClick={onClick}
+    >
+      {/* Gradient border accent */}
+      <div className={styles.matchCardBorderAccent} style={{ background: isUrgent ? '#ff6464' : color }} />
+
+      {/* Top row */}
+      <div className={styles.matchCardTop}>
+        {/* Time block — visual anchor */}
+        <div className={styles.matchCardTime}>
+          <Clock size={11} className={styles.timeIcon} />
+          <span className={styles.timeVal}>{time}</span>
+        </div>
+
+        {/* Status badge */}
+        {isUrgent && (
+          <span className={styles.urgentBadge}>
+            <Zap size={10} strokeWidth={3} />
+            ¡Falta 1!
+          </span>
+        )}
+        {isFull && (
+          <span className={styles.fullBadge}>
+            <Shield size={10} />
+            Completo
+          </span>
+        )}
+      </div>
+
+      {/* Title & location */}
+      <div className={styles.matchCardBody}>
+        <p className={styles.matchCardTitle}>{match.title}</p>
+        <p className={styles.matchCardLocation}>
+          <MapPin size={10} />
+          {match.location_name}
+          <span className={styles.distanceDot}>·</span>
+          {match.distance_km.toFixed(1)} km
+        </p>
+      </div>
+
+      {/* ELO + player slots row */}
+      <div className={styles.matchCardFooter}>
+        {/* ELO section */}
+        <div className={styles.eloSection}>
+          <div className={styles.eloTopRow}>
+            <TrendingUp size={11} className={styles.eloIcon} style={{ color }} />
+            <span className={styles.eloNum} style={{ color }}>{match.elo_avg.toLocaleString()}</span>
+            <span className={styles.eloTag}>{eloLabel(match.elo_avg)}</span>
+          </div>
+          <div className={styles.eloBar}>
+            <div
+              className={styles.eloFill}
+              style={{ width: `${eloPct(match.elo_avg)}%`, background: color }}
+            />
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className={styles.footerDivider} />
+
+        {/* Players section */}
+        <div className={styles.playersSection}>
+          <div className={styles.playersSlotsRow}>
+            <PlayerSlots confirmed={match.players_confirmed} max={match.max_players} />
+            <span className={styles.slotsLabel}>
+              {slotsLeft > 0 ? `${slotsLeft} libre${slotsLeft !== 1 ? 's' : ''}` : 'Completo'}
+            </span>
+          </div>
+          <p className={styles.playersCount}>
+            {match.players_confirmed}/{match.max_players} jugadores
+          </p>
+        </div>
+      </div>
+
+      {/* Arrow indicator */}
+      <ArrowRight size={14} className={styles.matchCardArrow} />
+    </button>
+  )
+}
+
+// ─── FilterPanel (filter expand animado con CSS max-height) ───────────────────
+function FilterPanel({
+  eloRange, radiusKm, onELOChange, onRadiusChange, onReset, open, onToggle,
+}: {
+  eloRange: ELORange; radiusKm: RadiusOption
+  onELOChange: (r: ELORange) => void; onRadiusChange: (r: RadiusOption) => void
+  onReset: () => void; open: boolean; onToggle: () => void
+}) {
+  const [local, setLocal] = useState(eloRange)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => { setLocal(eloRange) }, [eloRange.min, eloRange.max]) // eslint-disable-line
+
+  const isModified = radiusKm !== 10 || local.min !== 800 || local.max !== 1400
+
+  function schedule(next: ELORange) {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => onELOChange(next), 400)
+  }
+
+  useEffect(() => () => { if (debounceRef.current) clearTimeout(debounceRef.current) }, [])
+
+  return (
+    <div className={styles.filterWrap}>
+      <button
+        className={`${styles.filterToggle} ${open ? styles.filterToggleOpen : ''}`}
+        onClick={onToggle}
+      >
+        <span className={styles.filterToggleLeft}>
+          <SlidersHorizontal size={15} />
+          Filtros
+          {isModified && <span className={styles.filterDot} />}
+        </span>
+        <span className={styles.filterToggleRight}>
+          {radiusKm} km · ELO {local.min}–{local.max}
+          <ChevronUp size={14} className={open ? '' : styles.rotated} />
+        </span>
+      </button>
+
+      {/* CSS max-height transition — GPU compositor, no JS */}
+      <div className={`${styles.filterPanel} ${open ? styles.filterPanelOpen : ''}`}>
+        <div className={styles.filterPanelInner}>
+          {/* Radius */}
+          <fieldset className={styles.filterGroup}>
+            <legend className={styles.filterLegend}>Radio de búsqueda</legend>
+            <div className={styles.radiusRow}>
+              {RADIUS_OPTIONS.map((r) => (
+                <button
+                  key={r}
+                  className={`${styles.radiusBtn} ${radiusKm === r ? styles.radiusBtnActive : ''}`}
+                  onClick={() => onRadiusChange(r)}
+                >
+                  {r} km
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          {/* ELO sliders */}
+          <fieldset className={styles.filterGroup}>
+            <legend className={styles.filterLegend}>Rango ELO</legend>
+            <div className={styles.sliderRow}>
+              <label className={styles.sliderLabel}>
+                <span>Mínimo</span>
+                <span className={styles.sliderValue}>{local.min}</span>
+              </label>
+              <input
+                type="range" min={ELO_MIN} max={ELO_MAX} step={50}
+                value={local.min}
+                onChange={(e) => {
+                  const v = Math.min(Number(e.target.value), local.max - 50)
+                  const next = { ...local, min: v }
+                  setLocal(next)
+                  schedule(next)
+                }}
+                className={styles.slider}
+              />
+            </div>
+            <div className={styles.sliderRow}>
+              <label className={styles.sliderLabel}>
+                <span>Máximo</span>
+                <span className={styles.sliderValue}>{local.max}</span>
+              </label>
+              <input
+                type="range" min={ELO_MIN} max={ELO_MAX} step={50}
+                value={local.max}
+                onChange={(e) => {
+                  const v = Math.max(Number(e.target.value), local.min + 50)
+                  const next = { ...local, max: v }
+                  setLocal(next)
+                  schedule(next)
+                }}
+                className={styles.slider}
+              />
+            </div>
+          </fieldset>
+
+          <button className={styles.resetBtn} onClick={onReset}>
+            <X size={12} /> Restablecer filtros
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Match Detail Bottom Sheet ─────────────────────────────────────────────────
+function MatchSheet({
+  match, onClose, onJoin,
+}: {
+  match: RadarMatch | null; onClose: () => void; onJoin: (id: string) => void
+}) {
+  useEffect(() => {
+    if (!match) return
+    const h = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', h)
+    return () => document.removeEventListener('keydown', h)
+  }, [match, onClose])
+
+  useEffect(() => {
+    document.body.style.overflow = match ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [match])
+
+  if (!match) {
+    return (
+      <>
+        <div className={styles.sheetBackdrop} />
+        <div className={styles.sheet} />
+      </>
+    )
+  }
+
+  const slotsLeft = match.players_needed - match.players_confirmed
+  const isUrgent  = slotsLeft === 1
+  const color     = eloColor(match.elo_avg)
+  const time      = new Date(match.scheduled_at).toLocaleTimeString('es-AR', {
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  })
+
+  return (
+    <>
+      <div
+        className={`${styles.sheetBackdrop} ${styles.sheetBackdropOpen}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div
+        className={`${styles.sheet} ${styles.sheetOpen}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Partido: ${match.title}`}
+      >
+        <div className={styles.sheetHandle} />
+
+        {/* Top accent bar */}
+        <div
+          className={styles.sheetAccentBar}
+          style={{ background: `linear-gradient(90deg, ${color}, transparent)` }}
+        />
+
+        <div className={styles.sheetContent}>
+          {/* Header */}
+          <div className={styles.sheetHeader}>
+            <div className={styles.sheetHeaderLeft}>
+              <div className={styles.sheetELOBadge} style={{ color, borderColor: `${color}33`, background: `${color}10` }}>
+                {eloLabel(match.elo_avg)}
+              </div>
+              <h2 className={styles.sheetTitle}>{match.title}</h2>
+              {isUrgent && (
+                <p className={styles.sheetUrgent}>
+                  <Zap size={12} /> ¡Solo queda 1 lugar!
+                </p>
+              )}
+            </div>
+            <button className={styles.sheetClose} onClick={onClose} aria-label="Cerrar">
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Stats 2x2 grid */}
+          <div className={styles.sheetGrid}>
+            <div className={styles.sheetStat}>
+              <Clock size={16} className={styles.sheetStatIcon} />
+              <p className={styles.sheetStatSub}>Horario</p>
+              <p className={styles.sheetStatVal}>{time}</p>
+            </div>
+            <div className={styles.sheetStat}>
+              <MapPin size={16} className={styles.sheetStatIcon} />
+              <p className={styles.sheetStatSub}>Distancia</p>
+              <p className={styles.sheetStatVal}>{match.distance_km.toFixed(1)} km</p>
+            </div>
+            <div className={styles.sheetStat}>
+              <Users size={16} className={styles.sheetStatIcon} />
+              <p className={styles.sheetStatSub}>Jugadores</p>
+              <p className={styles.sheetStatVal}>{match.players_confirmed}<span className={styles.sheetStatOf}>/{match.max_players}</span></p>
+            </div>
+            <div className={styles.sheetStat}>
+              <TrendingUp size={16} className={styles.sheetStatIcon} style={{ color }} />
+              <p className={styles.sheetStatSub}>ELO prom.</p>
+              <p className={styles.sheetStatVal} style={{ color }}>{match.elo_avg.toLocaleString()}</p>
+            </div>
+          </div>
+
+          {/* Location row */}
+          <div className={styles.sheetLocation}>
+            <MapPin size={13} />
+            <span>{match.location_name}</span>
+          </div>
+
+          {/* Player slots visual */}
+          <div className={styles.sheetPlayerSlots}>
+            <p className={styles.sheetPlayerSlotsLabel}>
+              Ocupación · {slotsLeft > 0 ? `${slotsLeft} lugar${slotsLeft !== 1 ? 'es' : ''} libre${slotsLeft !== 1 ? 's' : ''}` : 'Partido completo'}
+            </p>
+            <div className={styles.sheetSlotsRow}>
+              {Array.from({ length: match.max_players }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`${styles.sheetSlot} ${i < match.players_confirmed ? styles.sheetSlotFilled : ''}`}
+                  style={i < match.players_confirmed ? { borderColor: color, background: `${color}20` } : {}}
+                >
+                  {i < match.players_confirmed && (
+                    <Users size={10} style={{ color }} />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ELO bar */}
+          <div className={styles.sheetELOBar}>
+            <div className={styles.sheetELOBarTrack}>
+              <div
+                className={styles.sheetELOBarFill}
+                style={{ width: `${eloPct(match.elo_avg)}%`, background: color, boxShadow: `0 0 12px ${color}60` }}
+              />
+            </div>
+            <div className={styles.sheetELOLabels}>
+              <span>Rookie</span>
+              <span>Pro</span>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <button
+            className={`${styles.sheetCta} ${slotsLeft === 0 ? styles.sheetCtaDisabled : ''}`}
+            onClick={() => slotsLeft > 0 && onJoin(match.id)}
+            disabled={slotsLeft === 0}
+          >
+            {slotsLeft === 0 ? 'Partido Completo' : 'Quiero jugar'}
+            {slotsLeft > 0 && <ArrowRight size={18} />}
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}
+
+// ─── StatPill ─────────────────────────────────────────────────────────────────
+function StatPill({ icon, value, label }: { icon: React.ReactNode; value: string | number; label: string }) {
+  return (
+    <div className={styles.statPill}>
+      <span className={styles.statPillIcon}>{icon}</span>
+      <div>
+        <p className={styles.statPillValue}>{value}</p>
+        <p className={styles.statPillLabel}>{label}</p>
+      </div>
+    </div>
+  )
+}
+
+// ─── EmptyMatches ─────────────────────────────────────────────────────────────
+function EmptyMatches({ onCreateMatch }: { onCreateMatch: () => void }) {
+  return (
+    <div className={styles.emptyState}>
+      <div className={styles.emptyIcon}>
+        <Target size={28} />
+      </div>
+      <p className={styles.emptyTitle}>Sin partidos en la zona</p>
+      <p className={styles.emptyDesc}>Sé el primero en convocar uno.</p>
+      <button className={styles.emptyBtn} onClick={onCreateMatch}>
+        <Plus size={16} /> Crear partida
+      </button>
+    </div>
+  )
+}
+
+// ─── LocationDenied ────────────────────────────────────────────────────────────
+function LocationDenied({ onUseMendoza }: { onUseMendoza: () => void }) {
+  return (
+    <div className={styles.centerStage}>
+      <motion.div className={styles.gateCard} initial="hidden" animate="visible" variants={fadeUp}>
+        <div className={styles.gateIconWrap}>
+          <AlertCircle size={36} className={styles.gateIcon} />
+        </div>
+        <h1 className={styles.gateTitle}>Ubicación Inactiva</h1>
+        <p className={styles.gateDesc}>
+          Activá el radar para encontrar partidas reales en tu zona. O usá Mendoza como base.
+        </p>
+        <button onClick={onUseMendoza} className={styles.gateCta}>
+          <Navigation size={16} /> Conectar Área Mendoza
+        </button>
+      </motion.div>
+    </div>
+  )
+}
+
+// ─── RadarPage ─────────────────────────────────────────────────────────────────
 export function RadarPage() {
   const navigate = useNavigate()
 
-  const userLocation = useRadarStore((s) => s.userLocation)
-  const locationDenied = useRadarStore((s) => s.locationDenied)
-  const setUserLocation = useRadarStore((s) => s.setUserLocation)
+  const userLocation    = useRadarStore((s) => s.userLocation)
+  const locationDenied  = useRadarStore((s) => s.locationDenied)
+  const matches         = useRadarStore((s) => s.matches)
+  const isLoading       = useRadarStore((s) => s.isLoading)
+  const eloRange        = useRadarStore((s) => s.eloRange)
+  const radiusKm        = useRadarStore((s) => s.radiusKm)
+  const selectedMatchId = useRadarStore((s) => s.selectedMatchId)
+
+  const setUserLocation   = useRadarStore((s) => s.setUserLocation)
   const setLocationDenied = useRadarStore((s) => s.setLocationDenied)
+  const setELORange       = useRadarStore((s) => s.setELORange)
+  const setRadiusKm       = useRadarStore((s) => s.setRadiusKm)
+  const selectMatch       = useRadarStore((s) => s.selectMatch)
+  const fetchMatches      = useRadarStore((s) => s.fetchMatches)
+  const refresh           = useRadarStore((s) => s.refresh)
 
   const [geoInitialized, setGeoInitialized] = useState(false)
-  const [view, setView] = useState<'map' | 'list'>('map')
-  const [courts, setCourts] = useState<PadelCourt[]>([])
-  const [courtsLoading, setCourtsLoading] = useState(false)
+  const [courts, setCourts]                 = useState<PadelCourt[]>([])
+  const [courtsLoading, setCourtsLoading]   = useState(false)
+  const [filterOpen, setFilterOpen]         = useState(false)
+  const [refreshing, setRefreshing]         = useState(false)
 
-  // ── Geolocation on mount ──────────────────────────────────────────────────
+  // Geolocation init
   useEffect(() => {
     if (geoInitialized) return
     setGeoInitialized(true)
-
     if (!navigator.geolocation) {
       if (!userLocation) setUserLocation(MENDOZA)
       return
     }
-
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         setLocationDenied(false)
       },
-      () => {
-        if (!userLocation) setLocationDenied(true)
-      },
+      () => { if (!userLocation) setLocationDenied(true) },
       { timeout: 8000, maximumAge: 60_000 },
     )
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [geoInitialized, setLocationDenied, setUserLocation, userLocation])
 
-  // Stable primitives
-  const lat = userLocation?.lat
-  const lng = userLocation?.lng
-
-  // ── Fetch courts from Overpass API (cached 30 min in localStorage) ──────
+  // Fetch matches on location / filter change
   useEffect(() => {
+    if (!userLocation) return
+    fetchMatches()
+  }, [userLocation?.lat, userLocation?.lng, eloRange.min, eloRange.max, radiusKm]) // eslint-disable-line
+
+  // Fetch courts from Overpass with localStorage cache
+  useEffect(() => {
+    const lat = userLocation?.lat
+    const lng = userLocation?.lng
     if (lat == null || lng == null) return
 
-    // Check cache — reuse if same area and < 30 min old
-    const cacheKey = `blend-courts-${lat.toFixed(1)},${lng.toFixed(1)}`
+    const cacheKey = `blend-v3-courts-${lat.toFixed(1)},${lng.toFixed(1)}`
     try {
       const cached = localStorage.getItem(cacheKey)
       if (cached) {
         const { data, ts } = JSON.parse(cached)
-        if (Date.now() - ts < 30 * 60 * 1000) {
-          setCourts(data)
-          setCourtsLoading(false)
-          return
-        }
+        if (Date.now() - ts < 30 * 60 * 1000) { setCourts(data); return }
       }
-    } catch { /* ignore corrupt cache */ }
+    } catch {}
 
     setCourtsLoading(true)
-
-    const radius = 20000
-    const query = `[out:json][timeout:15];(node["sport"="padel"](around:${radius},${lat},${lng});way["sport"="padel"](around:${radius},${lat},${lng});node["sport"="paddle"](around:${radius},${lat},${lng});way["sport"="paddle"](around:${radius},${lat},${lng});node["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng});way["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng}););out center;`
+    const radius = 30000
+    const query  = `[out:json][timeout:25];(node["sport"~"padel|paddle"](around:${radius},${lat},${lng});way["sport"~"padel|paddle"](around:${radius},${lat},${lng});node["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng});way["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng});node["name"~"padel|paddle",i](around:${radius},${lat},${lng});way["name"~"padel|paddle",i](around:${radius},${lat},${lng}););out center;`
 
     fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
       body: `data=${encodeURIComponent(query)}`,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
-      .then((r) => {
-        if (!r.ok) throw new Error(`Overpass HTTP ${r.status}`)
-        return r.json()
-      })
+      .then((r) => r.json())
       .then((data) => {
-        const seen = new Set<number>()
+        const seen    = new Set<number>()
         const results: PadelCourt[] = (data.elements ?? [])
           .filter((el: any) => {
             if ((el.lat ?? el.center?.lat) == null) return false
@@ -98,146 +584,197 @@ export function RadarPage() {
           })
           .map((el: any) => ({
             id: el.id,
-            name: el.tags?.name || 'Cancha de pádel',
+            name: el.tags?.name || 'Cancha de padel',
             lat: el.lat ?? el.center?.lat,
             lng: el.lon ?? el.center?.lon,
           }))
         setCourts(results)
         setCourtsLoading(false)
-        // Cache for 30 min
         try { localStorage.setItem(cacheKey, JSON.stringify({ data: results, ts: Date.now() })) } catch {}
       })
-      .catch((err) => {
-        console.warn('Overpass API error:', err)
-        setCourtsLoading(false)
-      })
-  }, [lat, lng])
+      .catch(() => setCourtsLoading(false))
+  }, [userLocation?.lat, userLocation?.lng]) // eslint-disable-line
 
-  // ── Handlers ───────────��──────────────────────────────────────────────────
-  function handleUseMendoza() {
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true)
+    await refresh()
+    setTimeout(() => setRefreshing(false), 700)
+  }, [refresh])
+
+  const handleResetFilters = useCallback(() => {
+    setELORange({ min: 800, max: 1400 })
+    setRadiusKm(10)
+  }, [setELORange, setRadiusKm])
+
+  const handleUseMendoza = useCallback(() => {
     setUserLocation(MENDOZA)
     setLocationDenied(false)
-  }
+  }, [setUserLocation, setLocationDenied])
 
-  // ── Render: location denied ──────────���────────────────────────────────────
+  const selectedMatch = matches.find((m) => m.id === selectedMatchId) ?? null
+
+  // ── Guards ──
   if (locationDenied && !userLocation) {
-    return (
-      <div className="flex flex-col min-h-full">
-        <Header title="Canchas" />
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div className="text-center space-y-4">
-            <MapPin size={48} className="mx-auto text-text-secondary" />
-            <p className="text-text-secondary text-sm">
-              Necesitamos tu ubicación para mostrar canchas cercanas
-            </p>
-            <Button onClick={handleUseMendoza}>
-              Usar ubicación de Mendoza
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
+    return <LocationDenied onUseMendoza={handleUseMendoza} />
   }
 
-  // ── Render: waiting for location ──────────────────────────────────────────
   if (!userLocation) {
     return (
-      <div className="flex flex-col min-h-full">
-        <Header title="Canchas" />
-        <div className="flex-1 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-3">
-            <Spinner size="lg" />
-            <p className="text-text-secondary text-sm">Obteniendo ubicación...</p>
-          </div>
-        </div>
+      <div className={styles.centerStage}>
+        <motion.div className={styles.gateCard} initial="hidden" animate="visible" variants={fadeUp}>
+          <Spinner size="lg" />
+          <h1 className={styles.gateTitle}>Calibrando Radar</h1>
+          <p className={styles.gateDesc}>Detectando tu posición…</p>
+        </motion.div>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col min-h-full page-enter">
-      <Header
-        title="Canchas"
-        right={
+    <div className={styles.root}>
+
+      {/* ── LEFT: Map panel ─────────────────────────────────── */}
+      <section className={styles.mapPanel}>
+        <div className={styles.mapCard}>
+          <div className={styles.mapCardHeader}>
+            <div>
+              <p className={styles.mapKicker}>Zona activa</p>
+              <h2 className={styles.mapCardTitle}>Zona de Juego</h2>
+            </div>
+            <div className={styles.mapHeaderRight}>
+              <span className={styles.badgeLive}>
+                <span className={styles.pulse} /> LIVE
+              </span>
+              {courtsLoading && <Spinner size="sm" />}
+            </div>
+          </div>
+
+          <div className={styles.mapFrame}>
+            <CourtsMap
+              userLocation={userLocation}
+              courts={courts}
+              loading={courtsLoading}
+              onCenterChanged={(c) => setUserLocation(c)}
+            />
+          </div>
+
+          <div className={styles.mapFooter}>
+            <StatPill icon={<MapPin size={14} />}    value={courts.length}   label="Canchas" />
+            <StatPill icon={<Activity size={14} />}  value={matches.length}  label="Partidas" />
+            <StatPill icon={<Navigation size={14} />} value={`${radiusKm} km`} label="Radio" />
+          </div>
+        </div>
+      </section>
+
+      {/* ── RIGHT: Feed panel ───────────────────────────────── */}
+      <section className={styles.feedPanel}>
+
+        {/* Header */}
+        <header className={styles.feedHeader}>
+          <div className={styles.feedTitleGroup}>
+            <p className={styles.feedKicker}>Señal Activa</p>
+            <h1 className={styles.feedTitle}>RADAR</h1>
+          </div>
+          <div className={styles.feedHeaderActions}>
+            <button
+              className={`${styles.actionIconBtn} ${refreshing ? styles.spinning : ''}`}
+              onClick={handleRefresh}
+              aria-label="Actualizar"
+              title="Actualizar"
+            >
+              <RefreshCw size={18} />
+            </button>
+            <button
+              className={`${styles.actionIconBtn} ${filterOpen ? styles.actionIconBtnActive : ''}`}
+              onClick={() => setFilterOpen((o) => !o)}
+              aria-label="Filtros"
+              title="Filtros"
+            >
+              <SlidersHorizontal size={18} />
+            </button>
+            <button
+              className={styles.actionIconBtn}
+              onClick={() => navigate('/matchmaking')}
+              aria-label="Matchmaking"
+              title="Ir a Matchmaking"
+            >
+              <Compass size={18} />
+            </button>
+          </div>
+        </header>
+
+        {/* Hero CTA */}
+        <motion.div
+          className={styles.heroCTA}
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+        >
+          <div className={styles.heroContent}>
+            <h2 className={styles.heroTitle}>NUEVO<br />ENCUENTRO</h2>
+            <p className={styles.heroDesc}>
+              Convocá jugadores en tu nivel ELO automáticamente.
+            </p>
+          </div>
           <button
-            onClick={() => setView(view === 'map' ? 'list' : 'map')}
-            className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-padel-green transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
-            aria-label={view === 'map' ? 'Ver lista' : 'Ver mapa'}
+            className={styles.heroBtn}
+            onClick={() => navigate('/matchmaking/new')}
+            aria-label="Crear nueva partida"
           >
-            {view === 'map' ? <List size={20} aria-hidden="true" /> : <Map size={20} aria-hidden="true" />}
+            <Plus size={28} strokeWidth={3} />
           </button>
-        }
-      />
+        </motion.div>
 
-      {/* Courts count */}
-      <div className="px-4 py-2">
-        <p className="text-xs text-text-secondary">
-          {courtsLoading
-            ? 'Buscando canchas cercanas...'
-            : `${courts.length} canchas en 20 km`}
-        </p>
-      </div>
+        {/* Filters */}
+        <FilterPanel
+          eloRange={eloRange}
+          radiusKm={radiusKm}
+          onELOChange={setELORange}
+          onRadiusChange={setRadiusKm}
+          onReset={handleResetFilters}
+          open={filterOpen}
+          onToggle={() => setFilterOpen((o) => !o)}
+        />
 
-      {view === 'map' ? (
-        /* Map view — fills remaining space */
-        <div className="flex-1 mx-3 mb-3 relative" style={{ minHeight: '400px' }}>
-          {courtsLoading && courts.length === 0 && (
-            <div className="absolute inset-0 z-[1000] flex items-center justify-center bg-bg-dark/60 rounded-xl">
-              <div className="flex flex-col items-center gap-3">
-                <Spinner size="lg" />
-                <p className="text-text-secondary text-sm">Buscando canchas...</p>
-              </div>
-            </div>
-          )}
+        {/* Matches */}
+        <div className={styles.matchesSection}>
+          <div className={styles.matchesSectionHeader}>
+            <h3 className={styles.matchesSectionTitle}>
+              Partidas Cercanas
+              {!isLoading && <span className={styles.matchCount}>{matches.length}</span>}
+            </h3>
+          </div>
 
-          <CourtsMap
-            courts={courts}
-            userLocation={userLocation}
-          />
-
-          {!courtsLoading && courts.length === 0 && (
-            <div className="absolute inset-0 z-[999] flex items-center justify-center bg-bg-dark/70 rounded-xl backdrop-blur-sm">
-              <div className="text-center space-y-3 px-6">
-                <MapPin size={40} className="mx-auto text-text-secondary" />
-                <p className="text-text-primary font-semibold">No encontramos canchas cerca</p>
-                <p className="text-text-secondary text-sm">
-                  Probá ampliando la búsqueda o buscá en otra zona
-                </p>
-              </div>
+          {isLoading ? (
+            <div className={styles.matchesLoading}>
+              <Spinner size="md" />
+              <p>Buscando partidas…</p>
             </div>
-          )}
-        </div>
-      ) : (
-        /* List view */
-        <div className="flex-1 px-4 pb-4 space-y-2 overflow-y-auto">
-          {courtsLoading && courts.length === 0 ? (
-            <div className="flex items-center justify-center py-16">
-              <Spinner size="lg" />
-            </div>
-          ) : courts.length === 0 ? (
-            <div className="text-center py-16 space-y-3">
-              <MapPin size={40} className="mx-auto text-text-secondary" />
-              <p className="text-text-primary font-semibold">Sin canchas cercanas</p>
-            </div>
+          ) : matches.length === 0 ? (
+            <EmptyMatches onCreateMatch={() => navigate('/matchmaking/new')} />
           ) : (
-            courts.map((court) => (
-              <Card key={court.id}>
-                <div className="flex items-center gap-3">
-                  <div className="shrink-0 w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                    <span className="text-lg" aria-hidden="true">🎾</span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-text-primary truncate">{court.name}</p>
-                    <p className="text-xs text-text-secondary">
-                      {court.lat.toFixed(4)}, {court.lng.toFixed(4)}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))
+            <div className={styles.matchesList}>
+              {matches.map((match, i) => (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  index={i}
+                  onClick={() => selectMatch(match.id)}
+                />
+              ))}
+            </div>
           )}
         </div>
-      )}
+
+        <div style={{ height: 40 }} />
+      </section>
+
+      {/* ── Match bottom sheet ─────────────────────────────── */}
+      <MatchSheet
+        match={selectedMatch}
+        onClose={() => selectMatch(null)}
+        onJoin={(id) => { selectMatch(null); navigate(`/matches/${id}`) }}
+      />
     </div>
   )
 }

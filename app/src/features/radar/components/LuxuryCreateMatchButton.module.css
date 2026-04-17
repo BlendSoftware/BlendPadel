@@ -1,0 +1,38 @@
+.button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  min-height: 46px;
+  border-radius: 999px;
+  border: 1px solid rgb(215 255 45 / 0.4);
+  background: rgb(6 6 6 / 0.96);
+  color: var(--accent-fluo);
+  padding: 0 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: transform 360ms cubic-bezier(0.19, 0.8, 0.22, 1), box-shadow 360ms ease;
+}
+
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 34px rgb(215 255 45 / 0.24);
+}
+
+.buttonGlow {
+  position: absolute;
+  inset: -120% auto -120% -38%;
+  width: 42%;
+  transform: rotate(18deg) translateX(-160%);
+  background: linear-gradient(90deg, transparent, rgb(215 255 45 / 0.62), transparent);
+  transition: transform 900ms cubic-bezier(0.17, 0.67, 0.13, 1);
+  pointer-events: none;
+  z-index: -1;
+}
+
+.button:hover .buttonGlow {
+  transform: rotate(18deg) translateX(520%);
+}

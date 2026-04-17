@@ -272,8 +272,15 @@ func mapError(w http.ResponseWriter, err error) {
 	case ErrDisputeNotFound:
 		response.Problem(w, http.StatusNotFound, "Not Found", err.Error())
 	default:
+		if errors.Is(err, ErrGenderMismatch) {
+			response.JSON(w, http.StatusUnprocessableEntity, map[string]string{
+				"error_code": "GENDER_MISMATCH",
+				"message":    err.Error(),
+			})
+			return
+		}
 		if errors.Is(err, ErrInvalidTeamComposition) {
-			response.Problem(w, http.StatusBadRequest, "Bad Request", err.Error())
+			response.Problem(w, http.StatusUnprocessableEntity, "Validation Error", err.Error())
 			return
 		}
 		response.Problem(w, http.StatusInternalServerError, "Internal Server Error", err.Error())

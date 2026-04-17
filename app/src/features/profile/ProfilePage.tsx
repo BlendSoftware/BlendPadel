@@ -14,47 +14,63 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/stores/auth-store'
 import { useProfileStore } from '@/stores/profile-store'
-import { Header } from '@/components/layout/Header'
 import { Avatar } from '@/components/ui/Avatar'
-import { Badge } from '@/components/ui/Badge'
-import { Button } from '@/components/ui/Button'
-import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
+import { Button } from '@/components/ui/Button'
 import { EloChart } from './components/EloChart'
 import { MatchHistoryList } from './components/MatchHistoryList'
 import { CategoryBadge } from '@/components/ui/CategoryBadge'
 
-// ─── Trust helpers ─────────────────────────────────────────────────────────────
+import styles from './ProfilePage.module.css'
 
-type TrustLabel = 'Excelente' | 'Bueno' | 'Bajo'
-type BadgeVariant = 'trust-high' | 'trust-medium' | 'trust-low'
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function trustLabelFromScore(score: number): TrustLabel {
-  if (score >= 90) return 'Excelente'
-  if (score >= 70) return 'Bueno'
-  return 'Bajo'
+function trustCss(score: number): string {
+  if (score >= 90) return styles.trustHigh
+  if (score >= 70) return styles.trustMedium
+  return styles.trustLow
 }
 
-function trustVariant(label: TrustLabel): BadgeVariant {
-  if (label === 'Excelente') return 'trust-high'
-  if (label === 'Bueno') return 'trust-medium'
-  return 'trust-low'
+function trustLabel(score: number): string {
+  if (score >= 90) return 'Confianza excelente'
+  if (score >= 70) return 'Confianza buena'
+  return 'Confianza baja'
 }
 
-// ─── Component ─────────────────────────────────────────────────────────────────
+// ─── ActionRow ────────────────────────────────────────────────────────────────
+
+function ActionRow({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button className={styles.actionRow} onClick={onClick}>
+      <span className={styles.actionIcon}>{icon}</span>
+      <span className={styles.actionLabel}>{label}</span>
+      <ChevronRight size={16} className={styles.actionChevron} />
+    </button>
+  )
+}
+
+// ─── ProfilePage ──────────────────────────────────────────────────────────────
 
 export function ProfilePage() {
   const navigate = useNavigate()
-  const logout = useAuthStore((s) => s.logout)
+  const logout   = useAuthStore((s) => s.logout)
 
-  const profile = useProfileStore((s) => s.profile)
-  const eloHistory = useProfileStore((s) => s.eloHistory)
-  const matchHistory = useProfileStore((s) => s.matchHistory)
-  const hasMoreMatches = useProfileStore((s) => s.hasMoreMatches)
-  const loading = useProfileStore((s) => s.loading)
-  const error = useProfileStore((s) => s.error)
-  const fetchProfile = useProfileStore((s) => s.fetchProfile)
-  const fetchEloHistory = useProfileStore((s) => s.fetchEloHistory)
+  const profile          = useProfileStore((s) => s.profile)
+  const eloHistory       = useProfileStore((s) => s.eloHistory)
+  const matchHistory     = useProfileStore((s) => s.matchHistory)
+  const hasMoreMatches   = useProfileStore((s) => s.hasMoreMatches)
+  const loading          = useProfileStore((s) => s.loading)
+  const error            = useProfileStore((s) => s.error)
+  const fetchProfile     = useProfileStore((s) => s.fetchProfile)
+  const fetchEloHistory  = useProfileStore((s) => s.fetchEloHistory)
   const fetchMatchHistory = useProfileStore((s) => s.fetchMatchHistory)
 
   useEffect(() => {
@@ -68,32 +84,30 @@ export function ProfilePage() {
     navigate('/login', { replace: true })
   }
 
-  function handleLoadMoreMatches() {
-    fetchMatchHistory(undefined, false)
-  }
-
-  // Loading state
+  // Loading
   if (loading && !profile) {
     return (
-      <div className="flex flex-col min-h-full">
-        <Header title="Mi perfil" />
-        <div className="flex items-center justify-center flex-1 py-20">
+      <div className={`${styles.page} page-enter`}>
+        <div className={styles.topBar}>
+          <h1 className={styles.pageTitle}>Perfil</h1>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
           <Spinner size="lg" />
         </div>
       </div>
     )
   }
 
-  // Error state
+  // Error
   if (error && !profile) {
     return (
-      <div className="flex flex-col min-h-full">
-        <Header title="Mi perfil" />
-        <div className="px-4 py-8 text-center">
-          <p className="text-text-secondary text-sm mb-4">{error}</p>
-          <Button variant="outline" onClick={() => fetchProfile()}>
-            Reintentar
-          </Button>
+      <div className={`${styles.page} page-enter`}>
+        <div className={styles.topBar}>
+          <h1 className={styles.pageTitle}>Perfil</h1>
+        </div>
+        <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.85rem', marginBottom: 16 }}>{error}</p>
+          <Button variant="outline" onClick={() => fetchProfile()}>Reintentar</Button>
         </div>
       </div>
     )
@@ -101,199 +115,124 @@ export function ProfilePage() {
 
   if (!profile) return null
 
-  const lastElo = eloHistory.length >= 2 ? eloHistory[eloHistory.length - 1] : null
-  const eloDelta = lastElo?.delta ?? 0
-  const isCalibrating =
-    profile.calibration_matches_remaining !== undefined &&
-    profile.calibration_matches_remaining > 0
-  // BUG 10 FIX: Handle undefined last_name gracefully
-  const fullName = [profile.name, profile.last_name].filter(Boolean).join(' ').trim() || profile.name
+  const lastElo         = eloHistory.length >= 2 ? eloHistory[eloHistory.length - 1] : null
+  const eloDelta        = lastElo?.delta ?? 0
+  const isCalibrating   = (profile.calibration_matches_remaining ?? 0) > 0
+  const fullName        = [profile.name, profile.last_name].filter(Boolean).join(' ').trim() || profile.name
 
   return (
-    <div className="flex flex-col min-h-full page-enter">
-      {/* BUG 16 FIX: Use SlidersHorizontal for preferences (gear → settings, sliders → preferences) */}
-      <Header
-        title="Mi perfil"
-        right={
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Top bar ── */}
+      <div className={styles.topBar}>
+        <h1 className={styles.pageTitle}>Perfil</h1>
+        <button
+          className={styles.topAction}
+          onClick={() => navigate('/profile/preferences')}
+          aria-label="Preferencias"
+          title="Preferencias de matchmaking"
+        >
+          <SlidersHorizontal size={18} />
+        </button>
+      </div>
+
+      <div className={styles.body}>
+
+        {/* ── Hero card ── */}
+        <div className={styles.heroCard}>
           <button
-            onClick={() => navigate('/profile/preferences')}
-            className="flex items-center justify-center min-h-11 min-w-11 text-text-secondary hover:text-text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-lg"
-            aria-label="Preferencias de matchmaking"
+            className={styles.avatarBtn}
+            onClick={() => navigate('/profile/avatar')}
+            aria-label="Cambiar avatar"
           >
-            <SlidersHorizontal size={20} aria-hidden="true" />
+            <Avatar src={profile.avatar_url} name={fullName} size="xl" />
+            <div className={styles.avatarOverlay}>
+              <Camera size={20} />
+            </div>
           </button>
-        }
-      />
 
-      <div className="px-4 pt-6 pb-6 space-y-4">
-        {/* Hero */}
-        <Card>
-          <div className="flex flex-col items-center gap-3 py-2">
-            {/* Avatar with camera overlay */}
-            <button
-              onClick={() => navigate('/profile/avatar')}
-              className="relative group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green rounded-full"
-              aria-label="Cambiar avatar"
-            >
-              <Avatar src={profile.avatar_url} name={fullName} size="xl" />
-              <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity">
-                <Camera size={20} className="text-white" aria-hidden="true" />
-              </div>
-            </button>
+          <div className={styles.nameBlock}>
+            <p className={styles.displayName}>{fullName}</p>
+            {profile.email && <p className={styles.email}>{profile.email}</p>}
+          </div>
 
-            {/* Name */}
-            {/* BUG 11 FIX: Show email instead of username (username may be empty) */}
-            <div className="text-center">
-              <p className="text-xl font-bold text-text-primary">{fullName}</p>
-              {profile.email && (
-                <p className="text-text-secondary text-sm">{profile.email}</p>
+          <div className={styles.eloDisplay}>
+            <div className={styles.eloRow}>
+              <span className={styles.eloNum}>{profile.elo}</span>
+              {eloDelta !== 0 && (
+                <span className={`${styles.eloDelta} ${eloDelta > 0 ? styles.eloDeltaUp : styles.eloDeltaDown}`}>
+                  {eloDelta > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                  {eloDelta > 0 ? `+${eloDelta}` : eloDelta}
+                </span>
               )}
             </div>
-
-            {/* ELO big display */}
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-2">
-                <span className="text-4xl font-black text-padel-green tabular-nums">
-                  {profile.elo}
-                </span>
-                {eloDelta !== 0 && (
-                  <span
-                    className={[
-                      'flex items-center gap-0.5 text-sm font-semibold',
-                      eloDelta > 0 ? 'text-trust-high' : 'text-trust-low',
-                    ].join(' ')}
-                  >
-                    {eloDelta > 0 ? (
-                      <TrendingUp size={14} aria-hidden="true" />
-                    ) : (
-                      <TrendingDown size={14} aria-hidden="true" />
-                    )}
-                    {eloDelta > 0 ? `+${eloDelta}` : eloDelta}
-                  </span>
-                )}
-              </div>
-              <CategoryBadge elo={profile.elo} showFull />
-            </div>
-
-            {profile.trust_score !== undefined && (
-              <Badge variant={trustVariant(trustLabelFromScore(profile.trust_score))}>
-                Confianza: {trustLabelFromScore(profile.trust_score)}
-              </Badge>
-            )}
+            <CategoryBadge elo={profile.elo} showFull />
           </div>
-        </Card>
 
-        {/* Calibration or rank status */}
-        {isCalibrating ? (
-          <Card>
-            <div className="text-center py-1">
-              <p className="text-text-secondary text-sm">
-                En calibración — te faltan{' '}
-                <span className="text-text-primary font-semibold">
-                  {profile.calibration_matches_remaining}
-                </span>{' '}
-                {profile.calibration_matches_remaining === 1 ? 'partido' : 'partidos'} para aparecer
-                en el ranking
-              </p>
-            </div>
-          </Card>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <Card>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-text-primary">
-                  {profile.validated_match_count}
-                </p>
-                <p className="text-xs text-text-secondary mt-0.5">Partidos jugados</p>
-              </div>
-            </Card>
-            <Card>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-padel-green">{profile.elo}</p>
-                <p className="text-xs text-text-secondary mt-0.5">ELO actual</p>
-              </div>
-            </Card>
-          </div>
-        )}
-
-        {/* ELO History chart */}
-        {eloHistory.length > 0 && (
-          <Card>
-            <p className="text-sm font-semibold text-text-primary mb-3">Historial ELO</p>
-            <EloChart entries={eloHistory} />
-          </Card>
-        )}
-
-        {/* Quick actions */}
-        <div className="space-y-1">
-          {/* BUG 16 FIX: Distinct icons for edit profile vs preferences */}
-          <ActionRow
-            icon={<Pencil size={18} aria-hidden="true" />}
-            label="Editar perfil"
-            onClick={() => navigate('/profile/edit')}
-          />
-          <ActionRow
-            icon={<SlidersHorizontal size={18} aria-hidden="true" />}
-            label="Preferencias de matchmaking"
-            onClick={() => navigate('/profile/preferences')}
-          />
-          <ActionRow
-            icon={<MapPin size={18} aria-hidden="true" />}
-            label="Mis Canchas"
-            onClick={() => navigate('/venues')}
-          />
-          <ActionRow
-            icon={<Users size={18} aria-hidden="true" />}
-            label="Mis Parejas"
-            onClick={() => navigate('/partnerships')}
-          />
-          <ActionRow
-            icon={<Key size={18} aria-hidden="true" />}
-            label="Cambiar contraseña"
-            onClick={() => navigate('/change-password')}
-          />
+          {profile.trust_score !== undefined && (
+            <span className={`${styles.trustBadge} ${trustCss(profile.trust_score)}`}>
+              {trustLabel(profile.trust_score)}
+            </span>
+          )}
         </div>
 
-        {/* Match history */}
-        <div>
-          <p className="text-sm font-semibold text-text-primary mb-3">Últimos partidos</p>
+        {/* ── Calibration / Stats ── */}
+        {isCalibrating ? (
+          <div className={styles.calibrationBanner}>
+            <p className={styles.calibrationText}>
+              En calibración &mdash; te faltan{' '}
+              <span className={styles.calibrationAccent}>
+                {profile.calibration_matches_remaining} partidos
+              </span>{' '}
+              para aparecer en el ranking
+            </p>
+          </div>
+        ) : (
+          <div className={styles.statsGrid}>
+            <div className={styles.statCard}>
+              <span className={styles.statValue}>{profile.validated_match_count}</span>
+              <span className={styles.statLabel}>Partidos jugados</span>
+            </div>
+            <div className={styles.statCard}>
+              <span className={`${styles.statValue} ${styles.statValueAccent}`}>{profile.elo}</span>
+              <span className={styles.statLabel}>ELO actual</span>
+            </div>
+          </div>
+        )}
+
+        {/* ── ELO Chart ── */}
+        {eloHistory.length > 0 && (
+          <div className={styles.chartCard}>
+            <p className={styles.sectionLabel}>Historial ELO</p>
+            <EloChart entries={eloHistory} />
+          </div>
+        )}
+
+        {/* ── Quick actions ── */}
+        <div className={styles.actionList}>
+          <ActionRow icon={<Pencil size={16} />} label="Editar perfil"                 onClick={() => navigate('/profile/edit')} />
+          <ActionRow icon={<SlidersHorizontal size={16} />} label="Preferencias de matchmaking" onClick={() => navigate('/profile/preferences')} />
+          <ActionRow icon={<MapPin size={16} />} label="Mis Canchas"                   onClick={() => navigate('/venues')} />
+          <ActionRow icon={<Users size={16} />}  label="Mis Parejas"                   onClick={() => navigate('/partnerships')} />
+          <ActionRow icon={<Key size={16} />}    label="Cambiar contraseña"             onClick={() => navigate('/change-password')} />
+        </div>
+
+        {/* ── Match history ── */}
+        <div className={styles.historySection}>
+          <p className={styles.sectionLabel}>Últimos partidos</p>
           <MatchHistoryList
             matches={matchHistory}
             hasMore={hasMoreMatches}
             loading={loading && matchHistory.length > 0}
-            onLoadMore={handleLoadMoreMatches}
+            onLoadMore={() => fetchMatchHistory(undefined, false)}
           />
         </div>
 
-        {/* Logout */}
-        <div className="pt-2">
-          <Button variant="danger" fullWidth onClick={handleLogout}>
-            <LogOut size={16} aria-hidden="true" />
-            Cerrar sesión
-          </Button>
-        </div>
+        {/* ── Logout ── */}
+        <button className={styles.logoutBtn} onClick={handleLogout}>
+          <LogOut size={16} />
+          Cerrar sesión
+        </button>
       </div>
     </div>
-  )
-}
-
-// ─── Action row sub-component ─────────────────────────────────────────────────
-
-interface ActionRowProps {
-  icon: React.ReactNode
-  label: string
-  onClick: () => void
-}
-
-function ActionRow({ icon, label, onClick }: ActionRowProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full flex items-center gap-3 bg-bg-card border border-border rounded-xl px-4 min-h-[52px] hover:border-border/80 hover:bg-bg-input transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-padel-green"
-    >
-      <span className="text-text-secondary shrink-0">{icon}</span>
-      <span className="flex-1 text-left text-sm text-text-primary">{label}</span>
-      <ChevronRight size={16} className="text-text-secondary shrink-0" aria-hidden="true" />
-    </button>
   )
 }

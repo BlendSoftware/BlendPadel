@@ -2,10 +2,12 @@ import { create } from 'zustand'
 import api from '@/services/api'
 import { useAuthStore } from '@/stores/auth-store'
 import { usePlayerCache } from '@/stores/player-cache'
+import { extractApiError } from '@/lib/api-errors'
 import type {
   MatchDetail,
   MatchPlayer,
   MatchStatus,
+  MatchType,
   SetScore,
   CreateMatchDTO,
   PlayerSearchResult,
@@ -47,6 +49,11 @@ function hydrateMatch(raw: Record<string, unknown>): MatchDetail {
 
 export type MatchTab = 'upcoming' | 'pending' | 'history'
 
+interface PlayerSearchOptions {
+  excludeIds?: string[]
+  matchType?: MatchType
+}
+
 interface MatchState {
   matches: MatchDetail[]
   selectedMatch: MatchDetail | null
@@ -62,13 +69,14 @@ interface MatchActions {
   setActiveTab: (tab: MatchTab) => void
   fetchMatches: () => Promise<void>
   fetchMatch: (id: string) => Promise<void>
+  refreshMatch: (id: string) => Promise<void>
   createMatch: (data: CreateMatchDTO) => Promise<MatchDetail>
   submitResult: (matchId: string, sets: SetScore[]) => Promise<void>
   confirmResult: (matchId: string) => Promise<void>
   disputeResult: (matchId: string, reason: string) => Promise<void>
   cancelMatch: (matchId: string) => Promise<void>
   reportMisconduct: (matchId: string, playerId: string, description: string) => Promise<void>
-  searchPlayers: (query: string) => Promise<void>
+  searchPlayers: (query: string, options?: PlayerSearchOptions) => Promise<void>
   clearSearch: () => void
   clearError: () => void
   clearSelectedMatch: () => void
@@ -164,6 +172,11 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     }
   },
 
+  refreshMatch: async (id) => {
+    await get().fetchMatches()
+    await get().fetchMatch(id)
+  },
+
   createMatch: async (data) => {
     set({ isActionLoading: true, error: null })
     try {
@@ -172,7 +185,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
       set((s) => ({ matches: [match, ...s.matches], isActionLoading: false }))
       return match
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al crear partido'
+      const message = extractApiError(e, 'Error al crear partido')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -181,15 +194,20 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   submitResult: async (matchId, sets) => {
     set({ isActionLoading: true, error: null })
     try {
-      const res = await api.post<Record<string, unknown>>(`/matches/${matchId}/result`, { sets })
-      const match = hydrateMatch(res.data)
-      set({ selectedMatch: match, isActionLoading: false })
-      // Update in list
-      set((s) => ({
-        matches: s.matches.map((m) => (m.id === matchId ? match : m)),
-      }))
+    await api.post<Record<string, unknown>>(`/matches/${matchId}/result`, { sets })
+    set((s) => ({
+    selectedMatch:
+      s.selectedMatch?.id === matchId
+      ? { ...s.selectedMatch, status: 'awaiting_confirmation' as const }
+      : s.selectedMatch,
+    matches: s.matches.map((m) =>
+      m.id === matchId ? { ...m, status: 'awaiting_confirmation' as const } : m,
+    ),
+    isActionLoading: false,
+    }))
+    await get().refreshMatch(matchId)
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cargar resultado'
+    const message = extractApiError(e, 'Error al cargar resultado')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -198,14 +216,18 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   confirmResult: async (matchId) => {
     set({ isActionLoading: true, error: null })
     try {
-      const res = await api.post<Record<string, unknown>>(`/matches/${matchId}/confirm`)
-      const match = hydrateMatch(res.data)
-      set({ selectedMatch: match, isActionLoading: false })
-      set((s) => ({
-        matches: s.matches.map((m) => (m.id === matchId ? match : m)),
-      }))
+    await api.post<Record<string, unknown>>(`/matches/${matchId}/confirm`)
+    set((s) => ({
+    selectedMatch:
+      s.selectedMatch?.id === matchId
+      ? { ...s.selectedMatch, status: 'sealed' as const }
+      : s.selectedMatch,
+    matches: s.matches.map((m) => (m.id === matchId ? { ...m, status: 'sealed' as const } : m)),
+    isActionLoading: false,
+    }))
+    await get().refreshMatch(matchId)
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al confirmar resultado'
+    const message = extractApiError(e, 'Error al confirmar resultado')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -214,14 +236,20 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
   disputeResult: async (matchId, reason) => {
     set({ isActionLoading: true, error: null })
     try {
-      const res = await api.post<Record<string, unknown>>(`/matches/${matchId}/dispute`, { reason })
-      const match = hydrateMatch(res.data)
-      set({ selectedMatch: match, isActionLoading: false })
-      set((s) => ({
-        matches: s.matches.map((m) => (m.id === matchId ? match : m)),
-      }))
+    await api.post<Record<string, unknown>>(`/matches/${matchId}/dispute`, { reason })
+    set((s) => ({
+    selectedMatch:
+      s.selectedMatch?.id === matchId
+      ? { ...s.selectedMatch, status: 'disputed' as const, dispute_reason: reason }
+      : s.selectedMatch,
+    matches: s.matches.map((m) =>
+      m.id === matchId ? { ...m, status: 'disputed' as const, dispute_reason: reason } : m,
+    ),
+    isActionLoading: false,
+    }))
+    await get().refreshMatch(matchId)
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al disputar resultado'
+    const message = extractApiError(e, 'Error al disputar resultado')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -242,7 +270,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
         isActionLoading: false,
       }))
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cancelar partido'
+      const message = extractApiError(e, 'Error al cancelar partido')
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -258,21 +286,26 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
       })
       set({ isActionLoading: false })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al enviar reporte'
+      const message = extractApiError(e, 'Error al enviar reporte')
       set({ error: message, isActionLoading: false })
       throw e
     }
   },
 
-  searchPlayers: async (query) => {
+  searchPlayers: async (query, options) => {
     if (!query.trim()) {
       set({ searchResults: [] })
       return
     }
     set({ isSearching: true })
     try {
+      const exclude = (options?.excludeIds ?? []).filter(Boolean)
       const res = await api.get<PlayerSearchResult[]>('/players/search', {
-        params: { q: query.trim() },
+        params: {
+          q: query.trim(),
+          exclude_ids: exclude.length ? exclude.join(',') : undefined,
+          match_type: options?.matchType,
+        },
       })
       set({ searchResults: res.data ?? [], isSearching: false })
     } catch {

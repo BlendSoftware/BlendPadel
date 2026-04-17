@@ -7,6 +7,7 @@ import { PlayerSearchPicker } from '../components/PlayerSearchPicker'
 import { ProjectionCard } from '@/features/rankings/ProjectionCard'
 import { useMatchStore } from '@/stores/match-store'
 import { useAuthStore } from '@/stores/auth-store'
+import { useVenueStore } from '@/stores/venue-store'
 import type { PlayerSearchResult, MatchType } from '../types'
 
 function toLocalDatetimeValue(date: Date): string {
@@ -28,6 +29,9 @@ export function CreateMatchPage() {
   const error = useMatchStore((s) => s.error)
   const createMatch = useMatchStore((s) => s.createMatch)
   const clearError = useMatchStore((s) => s.clearError)
+  const venues = useVenueStore((s) => s.venues)
+  const venuesLoading = useVenueStore((s) => s.isLoading)
+  const fetchNearby = useVenueStore((s) => s.fetchNearby)
 
   const [matchType, setMatchType] = useState<MatchType>('male')
   const [scheduledAt, setScheduledAt] = useState('')
@@ -38,6 +42,7 @@ export function CreateMatchPage() {
   const [teamB, setTeamB] = useState<PlayerSearchResult[]>([])
   const [lat, setLat] = useState<number | null>(null)
   const [lng, setLng] = useState<number | null>(null)
+  const [venueId, setVenueId] = useState('')
   const [gettingLocation, setGettingLocation] = useState(false)
   const [locationError, setLocationError] = useState('')
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
@@ -69,6 +74,7 @@ export function CreateMatchPage() {
         setLat(pos.coords.latitude)
         setLng(pos.coords.longitude)
         setGettingLocation(false)
+        void fetchNearby(pos.coords.latitude, pos.coords.longitude, 15)
       },
       () => {
         setLocationError('No se pudo obtener la ubicación')
@@ -100,6 +106,7 @@ export function CreateMatchPage() {
         latitude: lat,
         longitude: lng,
         match_type: matchType,
+        venue_id: venueId || undefined,
       })
       navigate(`/matches/${match.id}`)
     } catch {
@@ -146,24 +153,40 @@ export function CreateMatchPage() {
 
         {/* Location */}
         <div className="space-y-2">
-          <p className="text-sm font-medium text-text-secondary">Ubicación (opcional)</p>
-          {lat !== null ? (
-            <div className="flex items-center gap-3 bg-bg-input border border-border rounded-xl px-4 py-3">
-              <MapPin size={16} className="text-padel-green shrink-0" aria-hidden="true" />
-              <span className="text-sm text-text-primary flex-1">{lat.toFixed(4)}, {lng?.toFixed(4)}</span>
-              <button
-                type="button"
-                onClick={() => { setLat(null); setLng(null) }}
-                className="text-xs text-text-secondary hover:text-trust-low transition-colors min-h-11 px-2"
-              >
-                Quitar
-              </button>
-            </div>
-          ) : (
-            <Button type="button" variant="secondary" fullWidth loading={gettingLocation} onClick={handleGetLocation}>
-              <MapPin size={16} aria-hidden="true" />
-              Usar mi ubicación
-            </Button>
+          <p className="text-sm font-medium text-text-secondary">Ubicacion (opcional)</p>
+          <Button type="button" variant="secondary" fullWidth loading={gettingLocation} onClick={handleGetLocation}>
+            <MapPin size={16} aria-hidden="true" />
+            Usar mi ubicacion para cargar clubes cercanos
+          </Button>
+
+          <div className="space-y-1">
+            <label htmlFor="venue" className="text-xs text-text-secondary">Club o cancha</label>
+            <select
+              id="venue"
+              value={venueId}
+              onChange={(e) => {
+                const selectedId = e.target.value
+                setVenueId(selectedId)
+                const selectedVenue = venues.find((v) => v.id === selectedId)
+                if (selectedVenue) {
+                  setLat(selectedVenue.lat)
+                  setLng(selectedVenue.lng)
+                }
+              }}
+              className="w-full rounded-xl bg-bg-input text-text-primary border border-border transition-colors min-h-11 px-4 py-2.5 text-sm focus:outline-none focus:border-padel-green focus:ring-1 focus:ring-padel-green"
+            >
+              <option value="">Elegi el club o cancha</option>
+              {venues.map((venue) => (
+                <option key={venue.id} value={venue.id}>
+                  {venue.name} - {venue.address}
+                </option>
+              ))}
+            </select>
+            {venuesLoading && <p className="text-xs text-text-secondary">Cargando clubes cercanos...</p>}
+          </div>
+
+          {lat !== null && (
+            <p className="text-xs text-text-secondary">Ubicacion detectada para busqueda: {lat.toFixed(4)}, {lng?.toFixed(4)}</p>
           )}
           {locationError && <p role="alert" className="text-xs text-trust-low">{locationError}</p>}
         </div>
@@ -210,6 +233,7 @@ export function CreateMatchPage() {
             onRemove={(id) => setTeamA((prev) => prev.filter((p) => p.id !== id))}
             label=""
             excludeIds={excludeA}
+            matchType={matchType}
           />
         </div>
 
@@ -228,6 +252,7 @@ export function CreateMatchPage() {
             onRemove={(id) => setTeamB((prev) => prev.filter((p) => p.id !== id))}
             label=""
             excludeIds={excludeB}
+            matchType={matchType}
           />
         </div>
 

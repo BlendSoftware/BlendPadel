@@ -1,141 +1,174 @@
 import { useEffect } from 'react'
-import { Zap, Activity } from 'lucide-react'
+import { Zap, Activity, RefreshCw } from 'lucide-react'
 import { useFeedStore } from '@/stores/feed-store'
 import { useAuthStore } from '@/stores/auth-store'
 import { useRankingsStore } from '@/stores/rankings-store'
-import { Header } from '@/components/layout/Header'
-import { Card } from '@/components/ui/Card'
 import { Spinner } from '@/components/ui/Spinner'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { Button } from '@/components/ui/Button'
 import type { FeedItem } from '@/types'
+
+import styles from './FeedPage.module.css'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTimeAgo(dateStr: string): string {
-  const now = Date.now()
-  const then = new Date(dateStr).getTime()
-  const diffMs = now - then
+  const diffMs  = Date.now() - new Date(dateStr).getTime()
   const diffMin = Math.floor(diffMs / 60_000)
-
-  if (diffMin < 1) return 'ahora'
-  if (diffMin < 60) return `hace ${diffMin} min`
-
-  const diffHours = Math.floor(diffMin / 60)
-  if (diffHours < 24) return `hace ${diffHours}h`
-
-  const diffDays = Math.floor(diffHours / 24)
-  if (diffDays === 1) return 'ayer'
-  if (diffDays < 7) return `hace ${diffDays} días`
-
-  const diffWeeks = Math.floor(diffDays / 7)
-  if (diffWeeks === 1) return 'hace 1 semana'
-  return `hace ${diffWeeks} semanas`
+  if (diffMin < 1)   return 'ahora'
+  if (diffMin < 60)  return `hace ${diffMin} min`
+  const diffH = Math.floor(diffMin / 60)
+  if (diffH < 24)    return `hace ${diffH}h`
+  const diffD = Math.floor(diffH / 24)
+  if (diffD === 1)   return 'ayer'
+  if (diffD < 7)     return `hace ${diffD} días`
+  return `hace ${Math.floor(diffD / 7)} semanas`
 }
 
-function renderEventDescription(item: FeedItem): string {
-  const content = item.content ?? {}
+function eventDescription(item: FeedItem): string {
+  const c = item.content ?? {}
   switch (item.event_type) {
-    case 'win_streak':
-      return `ganó ${content.streak ?? '?'} partidos seguidos!`
-    case 'match_milestone':
-      return `alcanzó ${content.milestone ?? '?'} partidos validados!`
-    default:
-      return 'tuvo actividad reciente'
+    case 'win_streak':       return `ganó ${c.streak ?? '?'} partidos seguidos`
+    case 'match_milestone':  return `alcanzó ${c.milestone ?? '?'} partidos validados`
+    default:                 return 'tuvo actividad reciente'
   }
 }
 
-function eventIcon(type: FeedItem['event_type']): string {
+function eventEmoji(type: FeedItem['event_type']): string {
   switch (type) {
-    case 'win_streak':
-      return '🔥'
-    case 'match_milestone':
-      return '🏆'
-    default:
-      return '⚡'
+    case 'win_streak':      return '🔥'
+    case 'match_milestone': return '🏆'
+    default:                return '⚡'
   }
+}
+
+function eventBadgeLabel(type: FeedItem['event_type']): string {
+  switch (type) {
+    case 'win_streak':      return 'Racha'
+    case 'match_milestone': return 'Hito'
+    default:                return 'Actividad'
+  }
+}
+
+function eventBadgeCss(type: FeedItem['event_type']): string {
+  switch (type) {
+    case 'win_streak':      return styles.badgeStreak
+    case 'match_milestone': return styles.badgeMilestone
+    default:                return styles.badgeDefault
+  }
+}
+
+// ─── FeedItem Card ─────────────────────────────────────────────────────────────
+
+function FeedCard({ item, index }: { item: FeedItem; index: number }) {
+  return (
+    <div
+      className={styles.feedItem}
+      style={{ animationDelay: `${index * 50}ms` }}
+    >
+      <div className={styles.feedItemAccent} />
+
+      <div className={styles.eventEmoji} aria-hidden="true">
+        {eventEmoji(item.event_type)}
+      </div>
+
+      <div className={styles.feedItemBody}>
+        <p className={styles.feedItemText}>
+          <span className={styles.feedItemName}>{item.player_name}</span>
+          {' '}{eventDescription(item)}!
+        </p>
+        <p className={styles.feedItemTime}>{formatTimeAgo(item.created_at)}</p>
+      </div>
+
+      <span className={`${styles.eventTypeBadge} ${eventBadgeCss(item.event_type)}`}>
+        {eventBadgeLabel(item.event_type)}
+      </span>
+    </div>
+  )
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export function FeedPage() {
-  const userRegionId = useAuthStore((s) => s.user?.region_id)
+  const userRegionId     = useAuthStore((s) => s.user?.region_id)
   const selectedRegionId = useRankingsStore((s) => s.selectedRegionId)
-  // Fallback: use rankings selected region if user has no region_id
-  const regionId = userRegionId ?? selectedRegionId
+  const regionId         = userRegionId ?? selectedRegionId
 
-  const items = useFeedStore((s) => s.items)
-  const isLoading = useFeedStore((s) => s.isLoading)
-  const error = useFeedStore((s) => s.error)
-  const fetchFeed = useFeedStore((s) => s.fetchFeed)
+  const items      = useFeedStore((s) => s.items)
+  const isLoading  = useFeedStore((s) => s.isLoading)
+  const error      = useFeedStore((s) => s.error)
+  const fetchFeed  = useFeedStore((s) => s.fetchFeed)
   const clearError = useFeedStore((s) => s.clearError)
 
   useEffect(() => {
     clearError()
-    if (regionId) {
-      fetchFeed(regionId)
-    }
+    if (regionId) fetchFeed(regionId)
   }, [regionId, fetchFeed, clearError])
 
   return (
-    <div className="flex flex-col min-h-full page-enter">
-      <Header title="Feed" />
+    <div className={`${styles.page} page-enter`}>
+      {/* ── Top bar ── */}
+      <div className={styles.topBar}>
+        <div>
+          <p className={styles.kicker}>Actividad</p>
+          <h1 className={styles.pageTitle}>FEED</h1>
+        </div>
+      </div>
 
-      <div className="px-4 pt-4 pb-6 space-y-3">
+      <div className={styles.body}>
         {/* Loading */}
         {isLoading && items.length === 0 && (
-          <div className="flex items-center justify-center py-20">
+          <div className={styles.loadingWrap}>
             <Spinner size="lg" />
           </div>
         )}
 
         {/* Error */}
         {error && !isLoading && (
-          <div className="text-center py-8">
-            <p className="text-text-secondary text-sm mb-4">{error}</p>
-            <Button variant="outline" onClick={() => regionId && fetchFeed(regionId)}>
-              Reintentar
-            </Button>
+          <div className={styles.errorWrap}>
+            <p className={styles.errorText}>{error}</p>
+            <button
+              className={styles.retryBtn}
+              onClick={() => regionId && fetchFeed(regionId)}
+            >
+              <RefreshCw size={13} /> Reintentar
+            </button>
           </div>
         )}
 
         {/* No region */}
         {!regionId && !isLoading && (
-          <EmptyState
-            icon={<Activity size={48} />}
-            title="Sin región asignada"
-            subtitle="Necesitás tener una región para ver la actividad de tu zona"
-          />
+          <div className={styles.emptyWrap}>
+            <div className={styles.emptyIconWrap}>
+              <Activity size={30} />
+            </div>
+            <p className={styles.emptyTitle}>Sin región asignada</p>
+            <p className={styles.emptySubtitle}>
+              Necesitás tener una región para ver la actividad de tu zona
+            </p>
+          </div>
         )}
 
         {/* Empty */}
         {!isLoading && !error && regionId && items.length === 0 && (
-          <EmptyState
-            icon={<Zap size={48} />}
-            title="No hay actividad reciente en tu zona"
-            subtitle="Cuando los jugadores logren rachas o hitos, van a aparecer acá"
-          />
+          <div className={styles.emptyWrap}>
+            <div className={styles.emptyIconWrap}>
+              <Zap size={30} />
+            </div>
+            <p className={styles.emptyTitle}>No hay actividad reciente en tu zona</p>
+            <p className={styles.emptySubtitle}>
+              Cuando los jugadores logren rachas o hitos, van a aparecer acá
+            </p>
+          </div>
         )}
 
-        {/* Feed items */}
-        {items.map((item) => (
-          <Card key={item.id}>
-            <div className="flex items-start gap-3">
-              <span className="text-xl shrink-0 mt-0.5" aria-hidden="true">
-                {eventIcon(item.event_type)}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-text-primary">
-                  <span className="font-semibold">{item.player_name}</span>{' '}
-                  {renderEventDescription(item)}
-                </p>
-                <p className="text-xs text-text-secondary mt-1">
-                  {formatTimeAgo(item.created_at)}
-                </p>
-              </div>
-            </div>
-          </Card>
-        ))}
+        {/* Items */}
+        {items.length > 0 && (
+          <>
+            <p className={styles.sectionLabel}>Actividad reciente</p>
+            {items.map((item, i) => (
+              <FeedCard key={item.id} item={item} index={i} />
+            ))}
+          </>
+        )}
       </div>
     </div>
   )

@@ -124,6 +124,22 @@ func (h *Handler) ListMyPartnerships(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]interface{}{"partnerships": partnerships})
 }
 
+func (h *Handler) ListSentRequests(w http.ResponseWriter, r *http.Request) {
+	callerID, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Problem(w, http.StatusUnauthorized, "Unauthorized", "missing authentication")
+		return
+	}
+
+	items, err := h.svc.GetSentRequests(r.Context(), callerID)
+	if err != nil {
+		response.Problem(w, http.StatusInternalServerError, "Internal Server Error", err.Error())
+		return
+	}
+
+	response.JSON(w, http.StatusOK, map[string]interface{}{"requests": items})
+}
+
 func (h *Handler) GetPartnershipStats(w http.ResponseWriter, r *http.Request) {
 	callerID, ok := auth.GetUserID(r.Context())
 	if !ok {

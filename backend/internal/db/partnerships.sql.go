@@ -66,7 +66,7 @@ JOIN users u ON u.id = CASE
     ELSE pp.requester_id
 END
 WHERE (pp.requester_id = $1 OR pp.partner_id = $1)
-  AND pp.status = 'accepted'
+	AND pp.status IN ('accepted', 'pending')
 ORDER BY pp.created_at DESC
 `
 
