@@ -30,7 +30,7 @@ ORDER BY m.scheduled_at ASC, m.id ASC
 LIMIT $9;
 
 -- name: GetRadarAlerts :many
--- Radar alerts: matches within 5km and next 1 hour, trust filter, no ELO filter
+-- Radar alerts: matches within radius and next 1 hour, trust filter, no ELO filter
 SELECT
     m.id,
     m.captain_a_id                                                                          AS captain_id,
@@ -48,7 +48,7 @@ LEFT JOIN match_players mp ON mp.match_id = m.id
 WHERE m.status = 'pending_result'
   AND m.scheduled_at BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
   AND m.location IS NOT NULL
-  AND ST_DWithin(m.location, ST_MakePoint($2, $1)::geography, 5000)
+  AND ST_DWithin(m.location, ST_MakePoint($2, $1)::geography, $4)
   AND (ca.trust_score >= 70 OR viewer.trust_score < 70)
 GROUP BY m.id, ca.name, viewer.trust_score
 ORDER BY m.scheduled_at ASC;

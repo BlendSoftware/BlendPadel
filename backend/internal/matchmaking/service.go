@@ -19,11 +19,28 @@ type MatchCreator interface {
 	CreateMatchTx(ctx context.Context, tx pgx.Tx, req match.CreateMatchRequest) (*match.MatchResponse, error)
 }
 
+// PlayerChecker validates player eligibility for matchmaking actions.
+type PlayerChecker interface {
+	IsOnboardingComplete(ctx context.Context, playerID uuid.UUID) (bool, error)
+}
+
+// MatchmakingPreferences holds saved player preferences relevant to matchmaking.
+type MatchmakingPreferences struct {
+	RadarRadiusKM int32
+}
+
+// PreferencesFetcher resolves player preferences for matchmaking defaults.
+type PreferencesFetcher interface {
+	GetMatchmakingPreferences(ctx context.Context, userID uuid.UUID) (*MatchmakingPreferences, error)
+}
+
 // Service holds the business logic for the matchmaking domain.
 type Service struct {
-	repo     Repository
-	matchSvc MatchCreator
-	pool     *pgxpool.Pool
+	repo           Repository
+	matchSvc       MatchCreator
+	pool           *pgxpool.Pool
+	prefsFetcher   PreferencesFetcher
+	playerChecker  PlayerChecker
 }
 
 // NewService creates a new matchmaking Service.
@@ -33,6 +50,16 @@ func NewService(repo Repository, matchSvc MatchCreator, pool *pgxpool.Pool) *Ser
 		matchSvc: matchSvc,
 		pool:     pool,
 	}
+}
+
+// SetPreferencesFetcher registers an optional preferences resolver.
+func (s *Service) SetPreferencesFetcher(fetcher PreferencesFetcher) {
+	s.prefsFetcher = fetcher
+}
+
+// SetPlayerChecker registers an optional player eligibility checker.
+func (s *Service) SetPlayerChecker(checker PlayerChecker) {
+	s.playerChecker = checker
 }
 
 // GetMyActiveFlare returns the caller's active flare without location/ELO filters.
@@ -52,6 +79,16 @@ func (s *Service) GetMyActiveFlare(ctx context.Context, playerID uuid.UUID) (*Fl
 
 // CreateFlare creates a new flare for the given player.
 func (s *Service) CreateFlare(ctx context.Context, playerID uuid.UUID, req CreateFlareRequest) (*FlareResponse, error) {
+	if s.playerChecker != nil {
+		complete, err := s.playerChecker.IsOnboardingComplete(ctx, playerID)
+		if err != nil {
+			return nil, fmt.Errorf("check onboarding: %w", err)
+		}
+		if !complete {
+			return nil, ErrOnboardingRequired
+		}
+	}
+
 	// Apply defaults.
 	if req.ELOMin == 0 && req.ELOMax == 0 {
 		req.ELOMax = 3000

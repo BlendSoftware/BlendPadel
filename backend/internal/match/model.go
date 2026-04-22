@@ -46,6 +46,7 @@ var (
 	ErrGenderMismatch         = errors.New("gender mismatch for selected match type")
 	ErrInvalidTeamComposition = errors.New("team composition does not match the match type")
 	ErrMatchNotCancellable    = errors.New("match cannot be cancelled in its current status")
+	ErrPlayerBanned           = errors.New("one or more players are banned")
 )
 
 // SetScore represents the score of a single set.
@@ -76,25 +77,32 @@ type DisputeRequest struct {
 }
 
 // ResolveDisputeRequest is the payload for moderator dispute resolution.
+// Action: "seal" (default) applies result + ELO; "dismiss" cancels match without sealing.
 type ResolveDisputeRequest struct {
-	ResultOverride  *SubmitResultRequest `json:"result_override,omitempty"`
-	PenalizePlayerID *uuid.UUID          `json:"penalize_player_id,omitempty"`
+	Action           string               `json:"action,omitempty"`
+	ResultOverride   *SubmitResultRequest  `json:"result_override,omitempty"`
+	PenalizePlayerID *uuid.UUID            `json:"penalize_player_id,omitempty"`
 }
 
 // MatchResponse is the API response for a match.
 type MatchResponse struct {
-	ID          uuid.UUID  `json:"id"`
-	Status      string     `json:"status"`
-	ScheduledAt time.Time  `json:"scheduled_at"`
-	CaptainAID  uuid.UUID  `json:"captain_a_id"`
-	CaptainBID  uuid.UUID  `json:"captain_b_id"`
-	AvgELO      int        `json:"avg_elo"`
-	MatchType   string     `json:"match_type"`
-	VenueID     *uuid.UUID `json:"venue_id,omitempty"`
-	SealedBy    string     `json:"sealed_by,omitempty"`
+	ID          uuid.UUID   `json:"id"`
+	Status      string      `json:"status"`
+	ScheduledAt time.Time   `json:"scheduled_at"`
+	CaptainAID  uuid.UUID   `json:"captain_a_id"`
+	CaptainBID  uuid.UUID   `json:"captain_b_id"`
+	AvgELO      int         `json:"avg_elo"`
+	MatchType   string      `json:"match_type"`
+	VenueID     *uuid.UUID  `json:"venue_id,omitempty"`
+	SealedBy    string      `json:"sealed_by,omitempty"`
 	TeamA       []uuid.UUID `json:"team_a"`
 	TeamB       []uuid.UUID `json:"team_b"`
-	CreatedAt   time.Time  `json:"created_at"`
+	WinnerTeam  string      `json:"winner_team,omitempty"`
+	TotalGamesA int         `json:"total_games_a,omitempty"`
+	TotalGamesB int         `json:"total_games_b,omitempty"`
+	GameDiff    int         `json:"game_diff,omitempty"`
+	Sets        []SetScore  `json:"sets,omitempty"`
+	CreatedAt   time.Time   `json:"created_at"`
 }
 
 // MatchHistoryItem is the match list item for match history.

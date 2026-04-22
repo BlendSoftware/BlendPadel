@@ -9,6 +9,12 @@ import (
 
 // Repository defines the data-access contract for the match domain.
 type Repository interface {
+	// BeginTx starts a new database transaction.
+	BeginTx(ctx context.Context) (pgx.Tx, error)
+
+	// WithTx returns a new Repository scoped to the given transaction.
+	WithTx(tx pgx.Tx) Repository
+
 	// CreateMatch inserts a new match and returns the created match.
 	CreateMatch(ctx context.Context, m CreateMatchInput) (*MatchFull, error)
 
@@ -68,6 +74,12 @@ type Repository interface {
 
 	// GetPlayerGenders returns a map of playerID→gender for the given player IDs.
 	GetPlayerGenders(ctx context.Context, playerIDs []uuid.UUID) (map[uuid.UUID]string, error)
+
+	// GetPlayerELOs returns a map of playerID→ELO for the given player IDs.
+	GetPlayerELOs(ctx context.Context, playerIDs []uuid.UUID) (map[uuid.UUID]int, error)
+
+	// GetPlayerStatuses returns a map of playerID→status for the given player IDs.
+	GetPlayerStatuses(ctx context.Context, playerIDs []uuid.UUID) (map[uuid.UUID]string, error)
 }
 
 // CreateMatchInput holds the data needed to insert a new match.

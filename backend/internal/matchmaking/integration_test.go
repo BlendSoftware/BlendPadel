@@ -74,7 +74,7 @@ func createTestPlayer(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *
 
 func newTestMatchService(t *testing.T, pool *pgxpool.Pool, q *db.Queries) *match.Service {
 	t.Helper()
-	matchRepo := match.NewPostgresRepo(q)
+	matchRepo := match.NewPostgresRepo(q, pool)
 	rankingRepo := ranking.NewPostgresRepo(q)
 	rankingSvc := ranking.NewService(pool, rankingRepo)
 	trustRepo := trust.NewPostgresRepo(q)

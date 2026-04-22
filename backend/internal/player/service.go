@@ -168,24 +168,16 @@ func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, file multi
 		return "", ErrFileTooLarge
 	}
 
-	// Read first 512 bytes for MIME detection.
-	buf := make([]byte, 512)
-	n, err := file.Read(buf)
-	if err != nil && err != io.EOF {
-		return "", fmt.Errorf("read file header: %w", err)
+	// Buffer entire file into memory (max 5MB, already validated above).
+	data, err := io.ReadAll(file)
+	if err != nil {
+		return "", fmt.Errorf("read file: %w", err)
 	}
-	buf = buf[:n]
 
-	detectedMIME := http.DetectContentType(buf)
-	// DetectContentType may return e.g. "image/jpeg; charset=utf-8" — strip params.
+	detectedMIME := http.DetectContentType(data)
 	mimeType, _, _ := mime.ParseMediaType(detectedMIME)
 	if !allowedMIMETypes[mimeType] {
 		return "", ErrInvalidMIME
-	}
-
-	// Seek back to beginning.
-	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", fmt.Errorf("seek file: %w", err)
 	}
 
 	ext := mimeToExt[mimeType]
@@ -193,7 +185,6 @@ func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, file multi
 	avatarDir := filepath.Join(s.uploadDir, "avatars")
 	destPath := filepath.Join(avatarDir, filename)
 
-	// Ensure directory exists.
 	if err := os.MkdirAll(avatarDir, 0755); err != nil {
 		return "", fmt.Errorf("create avatars dir: %w", err)
 	}
@@ -201,20 +192,12 @@ func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, file multi
 	// Delete previous avatar if one exists.
 	profile, err := s.repo.GetProfile(ctx, userID)
 	if err == nil && profile.AvatarURL != "" {
-		// Extract relative path from URL, e.g. "/uploads/avatars/foo.jpg" → "avatars/foo.jpg"
 		rel := strings.TrimPrefix(profile.AvatarURL, "/uploads/")
 		oldPath := filepath.Join(s.uploadDir, rel)
-		_ = os.Remove(oldPath) // ignore error; file may not exist
+		_ = os.Remove(oldPath)
 	}
 
-	// Write the new file.
-	dst, err := os.Create(destPath)
-	if err != nil {
-		return "", fmt.Errorf("create avatar file: %w", err)
-	}
-	defer dst.Close()
-
-	if _, err := io.Copy(dst, file); err != nil {
+	if err := os.WriteFile(destPath, data, 0644); err != nil {
 		return "", fmt.Errorf("write avatar file: %w", err)
 	}
 
@@ -227,8 +210,14 @@ func (s *Service) UploadAvatar(ctx context.Context, userID uuid.UUID, file multi
 }
 
 // SearchByName returns players matching the given name query.
-func (s *Service) SearchByName(ctx context.Context, query string, excludeIDs []uuid.UUID, matchType string) ([]PlayerSearchResult, error) {
-	results, err := s.repo.SearchByName(ctx, query)
+func (s *Service) SearchByName(ctx context.Context, query string, excludeIDs []uuid.UUID, matchType string, limit int32) ([]PlayerSearchResult, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	results, err := s.repo.SearchByName(ctx, query, limit)
 	if err != nil {
 		return nil, err
 	}

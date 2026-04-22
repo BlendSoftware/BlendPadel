@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/juani/blendpadel/backend/internal/db"
 )
 
 // TrustNotificationHookFn is an optional callback invoked when a player's trust score changes.
@@ -158,6 +160,49 @@ func (s *Service) RecoverFromMatch(ctx context.Context, playerID, matchID uuid.U
 		EventType:   EventMatchCompleted,
 		Delta:       actualRecovered,
 		ReferenceID: matchID,
+	}); err != nil {
+		return 0, 0, fmt.Errorf("inserting trust event: %w", err)
+	}
+
+	return newScore, actualRecovered, nil
+}
+
+// RecoverFromMatchTx is like RecoverFromMatch but operates within an externally-managed transaction.
+func (s *Service) RecoverFromMatchTx(ctx context.Context, tx pgx.Tx, playerID, matchID uuid.UUID) (int, int, error) {
+	txRepo := NewPostgresRepo(db.New(tx))
+
+	current, err := txRepo.GetTrustScore(ctx, playerID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("getting trust score: %w", err)
+	}
+
+	monthlyRecovered, err := txRepo.GetMonthlyRecovery(ctx, playerID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("getting monthly recovery: %w", err)
+	}
+
+	if monthlyRecovered >= RecoveryMonthlyCap || current >= MaxTrustScore {
+		return current, 0, nil
+	}
+
+	remaining := RecoveryMonthlyCap - monthlyRecovered
+	delta := RecoveryPerMatch
+	if delta > remaining {
+		delta = remaining
+	}
+
+	newScore := clamp(current+delta, MinTrustScore, MaxTrustScore)
+	actualRecovered := newScore - current
+	if actualRecovered == 0 {
+		return current, 0, nil
+	}
+
+	if err := txRepo.UpdateTrustScore(ctx, playerID, newScore); err != nil {
+		return 0, 0, fmt.Errorf("updating trust score: %w", err)
+	}
+	if err := txRepo.InsertTrustEvent(ctx, TrustEvent{
+		PlayerID: playerID, EventType: EventMatchCompleted,
+		Delta: actualRecovered, ReferenceID: matchID,
 	}); err != nil {
 		return 0, 0, fmt.Errorf("inserting trust event: %w", err)
 	}

@@ -11,6 +11,7 @@ import (
 // RegisterRoutes mounts all match routes onto the given router.
 //
 //	POST /matches                         (authenticated)
+//	GET  /matches/{id}                    (authenticated)
 //	POST /matches/{id}/result             (authenticated)
 //	POST /matches/{id}/confirm            (authenticated)
 //	POST /matches/{id}/dispute            (authenticated)
@@ -25,6 +26,7 @@ func RegisterRoutes(r chi.Router, h *Handler, authMw func(http.Handler) http.Han
 		r.Use(authMw)
 
 		r.Post("/matches", h.CreateMatch)
+		r.Get("/matches/{id}", h.GetMatchDetail)
 		r.Post("/matches/{id}/result", h.SubmitResult)
 		r.Post("/matches/{id}/confirm", h.ConfirmMatch)
 		r.Post("/matches/{id}/dispute", h.DisputeMatch)

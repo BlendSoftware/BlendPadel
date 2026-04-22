@@ -11,6 +11,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getPlayerELOs = `-- name: GetPlayerELOs :many
+SELECT id, elo
+FROM users
+WHERE id = ANY($1::uuid[])
+`
+
+type GetPlayerELOsRow struct {
+	ID  pgtype.UUID `json:"id"`
+	Elo int32       `json:"elo"`
+}
+
+func (q *Queries) GetPlayerELOs(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetPlayerELOsRow, error) {
+	rows, err := q.db.Query(ctx, getPlayerELOs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPlayerELOsRow{}
+	for rows.Next() {
+		var i GetPlayerELOsRow
+		if err := rows.Scan(&i.ID, &i.Elo); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPlayerGenders = `-- name: GetPlayerGenders :many
 SELECT id, gender
 FROM users
@@ -113,6 +144,37 @@ func (q *Queries) GetPlayerProfile(ctx context.Context, id pgtype.UUID) (GetPlay
 	return i, err
 }
 
+const getPlayerStatuses = `-- name: GetPlayerStatuses :many
+SELECT id, status
+FROM users
+WHERE id = ANY($1::uuid[])
+`
+
+type GetPlayerStatusesRow struct {
+	ID     pgtype.UUID `json:"id"`
+	Status string      `json:"status"`
+}
+
+func (q *Queries) GetPlayerStatuses(ctx context.Context, dollar_1 []pgtype.UUID) ([]GetPlayerStatusesRow, error) {
+	rows, err := q.db.Query(ctx, getPlayerStatuses, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetPlayerStatusesRow{}
+	for rows.Next() {
+		var i GetPlayerStatusesRow
+		if err := rows.Scan(&i.ID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getPlayersByRegion = `-- name: GetPlayersByRegion :many
 SELECT
     id,
@@ -201,8 +263,13 @@ FROM users
 WHERE LOWER(name) LIKE LOWER('%' || $1 || '%')
   AND status IN ('active', 'calibration')
 ORDER BY elo DESC
-LIMIT 10
+LIMIT $2
 `
+
+type SearchPlayersByNameParams struct {
+	Query       pgtype.Text `json:"query"`
+	SearchLimit int32       `json:"search_limit"`
+}
 
 type SearchPlayersByNameRow struct {
 	ID        pgtype.UUID `json:"id"`
@@ -212,8 +279,8 @@ type SearchPlayersByNameRow struct {
 	Gender    string      `json:"gender"`
 }
 
-func (q *Queries) SearchPlayersByName(ctx context.Context, query pgtype.Text) ([]SearchPlayersByNameRow, error) {
-	rows, err := q.db.Query(ctx, searchPlayersByName, query)
+func (q *Queries) SearchPlayersByName(ctx context.Context, arg SearchPlayersByNameParams) ([]SearchPlayersByNameRow, error) {
+	rows, err := q.db.Query(ctx, searchPlayersByName, arg.Query, arg.SearchLimit)
 	if err != nil {
 		return nil, err
 	}

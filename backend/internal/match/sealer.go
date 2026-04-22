@@ -58,24 +58,17 @@ func (a *AutoSealer) sealExpiredMatches(ctx context.Context) {
 	for _, m := range matches {
 		matchID := m.ID
 
-		// Re-read current status inside transaction to prevent race conditions.
-		current, err := a.service.repo.GetMatch(ctx, matchID)
+		current, err := a.service.repo.GetMatchWithPlayers(ctx, matchID)
 		if err != nil {
 			log.Error().Err(err).Str("match_id", matchID.String()).Msg("auto-sealer: failed to fetch match")
 			continue
 		}
 
-		// Guard: only seal if still in awaiting_confirmation.
 		if current.Status != StatusAwaitingConfirmation {
 			continue
 		}
 
-		if err := a.service.repo.UpdateStatus(ctx, matchID, StatusSealed, "auto"); err != nil {
-			log.Error().Err(err).Str("match_id", matchID.String()).Msg("auto-sealer: failed to update match status")
-			continue
-		}
-
-		if err := a.service.sealMatch(ctx, matchID); err != nil {
+		if err := a.service.sealMatchAtomic(ctx, current, "auto"); err != nil {
 			log.Error().Err(err).Str("match_id", matchID.String()).Msg("auto-sealer: failed to seal match")
 			continue
 		}

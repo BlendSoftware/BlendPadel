@@ -75,4 +75,5 @@ type GetAlertsParams struct {
 	ViewerUserID uuid.UUID
 	Lat          float64
 	Lng          float64
+	RadiusKm     float64
 }

@@ -43,6 +43,7 @@ func (r *postgresRadarRepo) GetAlerts(ctx context.Context, p GetAlertsDBParams) 
 		StMakepoint:   p.Lat,
 		StMakepoint_2: p.Lng,
 		ID:            uuidToPg(p.ViewerID),
+		StDwithin:     p.RadiusMeters,
 	})
 	if err != nil {
 		return nil, err

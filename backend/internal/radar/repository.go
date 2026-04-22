@@ -29,9 +29,10 @@ type GetMatchesDBParams struct {
 
 // GetAlertsDBParams are the database-level params for GetAlerts.
 type GetAlertsDBParams struct {
-	Lat      float64
-	Lng      float64
-	ViewerID uuid.UUID
+	Lat          float64
+	Lng          float64
+	ViewerID     uuid.UUID
+	RadiusMeters float64
 }
 
 // zeroTimestamp returns a null pgtype.Timestamptz (no cursor = first page).

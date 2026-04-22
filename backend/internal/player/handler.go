@@ -267,7 +267,17 @@ func (h *Handler) SearchPlayers(w http.ResponseWriter, r *http.Request) {
 
 	matchType := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("match_type")))
 
-	results, err := h.service.SearchByName(r.Context(), q, excludeIDs, matchType)
+	var limit int32
+	if v := r.URL.Query().Get("limit"); v != "" {
+		n, parseErr := strconv.ParseInt(v, 10, 32)
+		if parseErr != nil {
+			response.Problem(w, http.StatusBadRequest, "Bad Request", "limit must be a valid integer")
+			return
+		}
+		limit = int32(n)
+	}
+
+	results, err := h.service.SearchByName(r.Context(), q, excludeIDs, matchType, limit)
 	if err != nil {
 		h.writeError(w, err)
 		return

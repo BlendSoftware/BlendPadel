@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -27,14 +28,33 @@ var (
 	ErrMissingLocation = errors.New("lat and lng are required")
 )
 
+// PlayerPreferences holds the player's saved radar/matchmaking preferences.
+type PlayerPreferences struct {
+	RadarRadiusKM int32
+	ELOMinDelta   int32
+	ELOMaxDelta   int32
+}
+
+// PlayerPreferencesFetcher resolves player preferences by user ID.
+type PlayerPreferencesFetcher interface {
+	GetPreferences(ctx context.Context, userID uuid.UUID) (*PlayerPreferences, error)
+	GetPlayerELO(ctx context.Context, userID uuid.UUID) (int32, error)
+}
+
 // Service handles radar business logic.
 type Service struct {
-	repo Repository
+	repo      Repository
+	prefsFetcher PlayerPreferencesFetcher
 }
 
 // NewService creates a new radar Service.
 func NewService(repo Repository) *Service {
 	return &Service{repo: repo}
+}
+
+// SetPreferencesFetcher registers an optional preferences resolver.
+func (s *Service) SetPreferencesFetcher(fetcher PlayerPreferencesFetcher) {
+	s.prefsFetcher = fetcher
 }
 
 // GetMatches returns a paginated list of open matches visible to the viewer.
@@ -114,12 +134,18 @@ func (s *Service) GetMatches(ctx context.Context, p GetMatchesParams) (*RadarMat
 	return resp, nil
 }
 
-// GetAlerts returns urgent matches (within 5km, within 1 hour) visible to the viewer.
+// GetAlerts returns urgent matches visible to the viewer within the given radius.
 func (s *Service) GetAlerts(ctx context.Context, p GetAlertsParams) (*RadarAlertsResponse, error) {
+	radiusMeters := float64(AlertRadiusMeters)
+	if p.RadiusKm > 0 {
+		radiusMeters = p.RadiusKm * 1000
+	}
+
 	results, err := s.repo.GetAlerts(ctx, GetAlertsDBParams{
-		Lat:      p.Lat,
-		Lng:      p.Lng,
-		ViewerID: p.ViewerUserID,
+		Lat:          p.Lat,
+		Lng:          p.Lng,
+		ViewerID:     p.ViewerUserID,
+		RadiusMeters: radiusMeters,
 	})
 	if err != nil {
 		return nil, err

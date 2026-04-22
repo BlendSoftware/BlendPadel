@@ -39,11 +39,14 @@ func (h *Handler) CreateFlare(w http.ResponseWriter, r *http.Request) {
 
 	flare, err := h.svc.CreateFlare(r.Context(), playerID, req)
 	if err != nil {
-		if errors.Is(err, ErrActiveFlareExists) {
+		switch {
+		case errors.Is(err, ErrActiveFlareExists):
 			response.Problem(w, http.StatusConflict, "Conflict", "player already has an active flare")
-			return
+		case errors.Is(err, ErrOnboardingRequired):
+			response.Problem(w, http.StatusUnprocessableEntity, "Unprocessable Entity", err.Error())
+		default:
+			response.Problem(w, http.StatusBadRequest, "Bad Request", err.Error())
 		}
-		response.Problem(w, http.StatusBadRequest, "Bad Request", err.Error())
 		return
 	}
 
@@ -99,13 +102,25 @@ func (h *Handler) ListFlares(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	radiusKm := 10.0
+	radiusKm := 0.0
+	radiusExplicit := false
 	if s := r.URL.Query().Get("radius_km"); s != "" {
 		radiusKm, err = strconv.ParseFloat(s, 64)
 		if err != nil {
 			response.Problem(w, http.StatusBadRequest, "Bad Request", "invalid radius_km")
 			return
 		}
+		radiusExplicit = true
+	}
+
+	if !radiusExplicit && h.svc.prefsFetcher != nil {
+		prefs, pErr := h.svc.prefsFetcher.GetMatchmakingPreferences(r.Context(), viewerID)
+		if pErr == nil && prefs != nil && prefs.RadarRadiusKM > 0 {
+			radiusKm = float64(prefs.RadarRadiusKM)
+		}
+	}
+	if radiusKm <= 0 {
+		radiusKm = 10.0
 	}
 
 	pageSize := int32(20)

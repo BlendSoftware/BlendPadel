@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,11 +21,17 @@ import (
 // Errors from the hook are logged but never propagate to callers.
 type NotificationHookFn func(ctx context.Context, event string, data map[string]interface{})
 
+// VenueCoordsFetcher resolves venue coordinates by ID.
+type VenueCoordsFetcher interface {
+	GetVenueCoords(ctx context.Context, venueID uuid.UUID) (lat, lng float64, err error)
+}
+
 // Service holds the business logic for the match domain.
 type Service struct {
 	repo           Repository
 	rankingService *ranking.Service
 	trustService   *trust.Service
+	venueFetcher   VenueCoordsFetcher
 	notifyHook     NotificationHookFn
 }
 
@@ -35,6 +42,11 @@ func NewService(repo Repository, rankingSvc *ranking.Service, trustSvc *trust.Se
 		rankingService: rankingSvc,
 		trustService:   trustSvc,
 	}
+}
+
+// SetVenueCoordsFetcher registers an optional venue coordinate resolver.
+func (s *Service) SetVenueCoordsFetcher(fetcher VenueCoordsFetcher) {
+	s.venueFetcher = fetcher
 }
 
 // SetNotificationHook registers an optional notification callback.
@@ -142,6 +154,17 @@ func (s *Service) CreateMatch(ctx context.Context, creatorID uuid.UUID, req Crea
 	captainAID := creatorID
 	captainBID := req.TeamB[0]
 
+	// Validate no player is banned.
+	statuses, err := s.repo.GetPlayerStatuses(ctx, allPlayers)
+	if err != nil {
+		return nil, fmt.Errorf("fetch player statuses: %w", err)
+	}
+	for _, pid := range allPlayers {
+		if strings.HasPrefix(statuses[pid], "banned") {
+			return nil, ErrPlayerBanned
+		}
+	}
+
 	// Validate team composition against match type.
 	genders, err := s.repo.GetPlayerGenders(ctx, allPlayers)
 	if err != nil {
@@ -151,33 +174,34 @@ func (s *Service) CreateMatch(ctx context.Context, creatorID uuid.UUID, req Crea
 		return nil, err
 	}
 
-	// Fetch all players and compute avg ELO.
+	// Fetch all players' ELOs in a batch and compute average.
+	elos, err := s.repo.GetPlayerELOs(ctx, allPlayers)
+	if err != nil {
+		return nil, fmt.Errorf("fetch player ELOs: %w", err)
+	}
 	totalELO := 0
 	for _, pid := range allPlayers {
-		profile, err := s.repo.GetPlayerProfile(ctx, pid)
-		if err != nil {
-			return nil, fmt.Errorf("player %s not found: %w", pid, err)
-		}
-		_ = profile // used for validation; ELO comes from ranking repo
+		totalELO += elos[pid]
 	}
+	avgELO := totalELO / len(allPlayers)
 
-	// For avg ELO, we get the ELO from the ranking service's repo path.
-	// Since we don't have direct access to the ranking repo here, we'll use
-	// the player profile. We use a simplified approach: avg of 4 players' ELO
-	// from the players table — but since GetPlayerProfile only gives status/count,
-	// we'll store avg_elo as 0 for now and let it be filled later if needed.
-	// Actually, let's fetch via trust service's underlying data via player profiles.
-	// We don't have ELO in PlayerBasic. Let's add a GetPlayerELO to repository.
-	// For MVP: set avg_elo to 0, it can be computed later.
-	_ = totalELO
+	// Resolve coordinates: use venue location if venue_id is provided.
+	lat, lng := req.Latitude, req.Longitude
+	if req.VenueID != nil && s.venueFetcher != nil {
+		vLat, vLng, vErr := s.venueFetcher.GetVenueCoords(ctx, *req.VenueID)
+		if vErr != nil {
+			return nil, fmt.Errorf("fetch venue coords: %w", vErr)
+		}
+		lat, lng = vLat, vLng
+	}
 
 	m, err := s.repo.CreateMatch(ctx, CreateMatchInput{
 		ScheduledAtTime: req.ScheduledAt,
-		Latitude:        req.Latitude,
-		Longitude:       req.Longitude,
+		Latitude:        lat,
+		Longitude:       lng,
 		CaptainAID:      captainAID,
 		CaptainBID:      captainBID,
-		AvgELO:          0, // will improve with ELO fetch
+		AvgELO:          avgELO,
 		MatchType:       req.MatchType,
 		VenueID:         req.VenueID,
 	})
@@ -279,6 +303,7 @@ func (s *Service) SubmitResult(ctx context.Context, matchID, submitterID uuid.UU
 }
 
 // ConfirmMatch is called by captain_b to confirm the result within the 6h window.
+// The status update and seal (ELO + trust) are wrapped in a single transaction.
 func (s *Service) ConfirmMatch(ctx context.Context, matchID, confirmerID uuid.UUID) error {
 	m, err := s.repo.GetMatchWithPlayers(ctx, matchID)
 	if err != nil {
@@ -302,11 +327,7 @@ func (s *Service) ConfirmMatch(ctx context.Context, matchID, confirmerID uuid.UU
 		return ErrWindowClosed
 	}
 
-	if err := s.repo.UpdateStatus(ctx, matchID, StatusSealed, "captain_b"); err != nil {
-		return fmt.Errorf("update status: %w", err)
-	}
-
-	return s.sealMatch(ctx, matchID)
+	return s.sealMatchAtomic(ctx, m, "captain_b")
 }
 
 // DisputeMatch is called by captain_b to dispute the result within the 6h window.
@@ -363,6 +384,7 @@ func (s *Service) GetPendingDisputes(ctx context.Context) ([]Dispute, error) {
 }
 
 // ResolveDispute allows a moderator to resolve a pending dispute.
+// action="seal" (default): apply result + ELO. action="dismiss": cancel match, no seal.
 func (s *Service) ResolveDispute(ctx context.Context, disputeID, moderatorID uuid.UUID, req ResolveDisputeRequest) error {
 	dispute, err := s.repo.GetDispute(ctx, disputeID)
 	if err != nil {
@@ -375,15 +397,52 @@ func (s *Service) ResolveDispute(ctx context.Context, disputeID, moderatorID uui
 
 	matchID := dispute.MatchID
 
-	// If result override provided, update the result.
-	if req.ResultOverride != nil {
-		if err := ValidateSets(req.ResultOverride.Sets); err != nil {
-			return fmt.Errorf("invalid override sets: %w", err)
+	action := req.Action
+	if action == "" {
+		action = "seal"
+	}
+
+	// Unfreeze ELO for both captains regardless of action.
+	m, err := s.repo.GetMatchWithPlayers(ctx, matchID)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.UnfreezePlayerELO(ctx, m.CaptainAID); err != nil {
+		log.Error().Err(err).Str("player", m.CaptainAID.String()).Msg("failed to unfreeze ELO for captain_a")
+	}
+	if err := s.repo.UnfreezePlayerELO(ctx, m.CaptainBID); err != nil {
+		log.Error().Err(err).Str("player", m.CaptainBID.String()).Msg("failed to unfreeze ELO for captain_b")
+	}
+
+	switch action {
+	case "seal":
+		// If result override provided, update the result before sealing.
+		if req.ResultOverride != nil {
+			if err := ValidateSets(req.ResultOverride.Sets); err != nil {
+				return fmt.Errorf("invalid override sets: %w", err)
+			}
+			winnerTeam, totalA, totalB, gameDiff := CalculateResult(req.ResultOverride.Sets)
+			if err := s.repo.UpdateResultSets(ctx, matchID, req.ResultOverride.Sets, winnerTeam, totalA, totalB, gameDiff); err != nil {
+				return fmt.Errorf("update result sets: %w", err)
+			}
 		}
-		winnerTeam, totalA, totalB, gameDiff := CalculateResult(req.ResultOverride.Sets)
-		if err := s.repo.UpdateResultSets(ctx, matchID, req.ResultOverride.Sets, winnerTeam, totalA, totalB, gameDiff); err != nil {
-			return fmt.Errorf("update result sets: %w", err)
+
+		// Re-fetch match with updated result for atomic sealing.
+		freshMatch, err := s.repo.GetMatchWithPlayers(ctx, matchID)
+		if err != nil {
+			return fmt.Errorf("refetch match: %w", err)
 		}
+		if err := s.sealMatchAtomic(ctx, freshMatch, "moderator"); err != nil {
+			return fmt.Errorf("seal match: %w", err)
+		}
+
+	case "dismiss":
+		if err := s.repo.UpdateStatus(ctx, matchID, StatusCancelled, "moderator_dismiss"); err != nil {
+			return fmt.Errorf("cancel match: %w", err)
+		}
+
+	default:
+		return fmt.Errorf("invalid action %q: must be \"seal\" or \"dismiss\"", action)
 	}
 
 	// Build resolution result JSON.
@@ -397,26 +456,6 @@ func (s *Service) ResolveDispute(ctx context.Context, disputeID, moderatorID uui
 		return fmt.Errorf("resolve dispute: %w", err)
 	}
 
-	// Unfreeze ELO for both captains.
-	m, err := s.repo.GetMatchWithPlayers(ctx, matchID)
-	if err != nil {
-		return err
-	}
-	if err := s.repo.UnfreezePlayerELO(ctx, m.CaptainAID); err != nil {
-		log.Error().Err(err).Str("player", m.CaptainAID.String()).Msg("failed to unfreeze ELO for captain_a")
-	}
-	if err := s.repo.UnfreezePlayerELO(ctx, m.CaptainBID); err != nil {
-		log.Error().Err(err).Str("player", m.CaptainBID.String()).Msg("failed to unfreeze ELO for captain_b")
-	}
-
-	// Seal the match.
-	if err := s.repo.UpdateStatus(ctx, matchID, StatusSealed, "moderator"); err != nil {
-		return fmt.Errorf("update match status: %w", err)
-	}
-	if err := s.sealMatch(ctx, matchID); err != nil {
-		return fmt.Errorf("seal match: %w", err)
-	}
-
 	// Penalize if requested.
 	if req.PenalizePlayerID != nil {
 		if _, err := s.trustService.PenalizeConductReport(ctx, *req.PenalizePlayerID, disputeID); err != nil {
@@ -428,6 +467,7 @@ func (s *Service) ResolveDispute(ctx context.Context, disputeID, moderatorID uui
 		Str("dispute_id", disputeID.String()).
 		Str("match_id", matchID.String()).
 		Str("moderator", moderatorID.String()).
+		Str("action", action).
 		Msg("dispute resolved")
 
 	return nil
@@ -518,22 +558,24 @@ func (s *Service) GetActiveMatches(ctx context.Context, playerID uuid.UUID) ([]M
 	return s.repo.GetActiveMatches(ctx, playerID)
 }
 
-// sealMatch is an internal helper that applies ELO and trust updates after a match is sealed.
-func (s *Service) sealMatch(ctx context.Context, matchID uuid.UUID) error {
+// GetMatchDetail returns full match data for a single match.
+func (s *Service) GetMatchDetail(ctx context.Context, matchID uuid.UUID) (*MatchResponse, error) {
 	m, err := s.repo.GetMatchWithPlayers(ctx, matchID)
 	if err != nil {
-		return fmt.Errorf("fetch match for sealing: %w", err)
+		return nil, err
 	}
+	return matchToResponse(m), nil
+}
 
+// sealMatchAtomic wraps status update + ELO + trust recovery in a single transaction.
+func (s *Service) sealMatchAtomic(ctx context.Context, m *MatchFull, sealedBy string) error {
 	if m.Result == nil {
 		return fmt.Errorf("cannot seal match without a result")
 	}
-
 	if len(m.TeamA) < 2 || len(m.TeamB) < 2 {
 		return fmt.Errorf("match must have 2 players per team")
 	}
 
-	// Determine games won/lost by winner.
 	var gamesWon, gamesLost int
 	if m.Result.WinnerTeam == "A" {
 		gamesWon = m.Result.TotalGamesA
@@ -543,9 +585,19 @@ func (s *Service) sealMatch(ctx context.Context, matchID uuid.UUID) error {
 		gamesLost = m.Result.TotalGamesA
 	}
 
-	// Apply ELO to all 4 players.
-	eloResults, err := s.rankingService.ApplyELO(ctx, ranking.MatchELOInput{
-		MatchID:        matchID,
+	tx, err := s.repo.BeginTx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck
+
+	txRepo := s.repo.WithTx(tx)
+	if err := txRepo.UpdateStatus(ctx, m.ID, StatusSealed, sealedBy); err != nil {
+		return fmt.Errorf("update status: %w", err)
+	}
+
+	eloResults, err := s.rankingService.ApplyELOTx(ctx, tx, ranking.MatchELOInput{
+		MatchID:        m.ID,
 		TeamAPlayerIDs: m.TeamA,
 		TeamBPlayerIDs: m.TeamB,
 		WinnerTeam:     m.Result.WinnerTeam,
@@ -556,25 +608,31 @@ func (s *Service) sealMatch(ctx context.Context, matchID uuid.UUID) error {
 		return fmt.Errorf("apply ELO: %w", err)
 	}
 
-	// Apply trust recovery for all 4 players.
 	allPlayers := append(m.TeamA, m.TeamB...)
 	for _, pid := range allPlayers {
-		if _, _, err := s.trustService.RecoverFromMatch(ctx, pid, matchID); err != nil {
+		if _, _, err := s.trustService.RecoverFromMatchTx(ctx, tx, pid, m.ID); err != nil {
 			log.Error().Err(err).Str("player", pid.String()).Msg("failed to recover trust from match")
 		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit seal transaction: %w", err)
+	}
+
+	for _, pid := range allPlayers {
 		if err := s.checkCalibrationEgress(ctx, pid); err != nil {
 			log.Error().Err(err).Str("player", pid.String()).Msg("failed to check calibration egress")
 		}
 	}
 
 	log.Info().
-		Str("match_id", matchID.String()).
+		Str("match_id", m.ID.String()).
 		Str("winner", m.Result.WinnerTeam).
 		Msg("match sealed, ELO and trust applied")
 
 	if s.notifyHook != nil {
 		s.notifyHook(ctx, "match_sealed", map[string]interface{}{
-			"match_id":    matchID,
+			"match_id":    m.ID,
 			"elo_results": eloResults,
 		})
 	}
@@ -606,7 +664,7 @@ func (s *Service) checkCalibrationEgress(ctx context.Context, playerID uuid.UUID
 // --- helpers ---
 
 func matchToResponse(m *MatchFull) *MatchResponse {
-	return &MatchResponse{
+	resp := &MatchResponse{
 		ID:          m.ID,
 		Status:      m.Status,
 		ScheduledAt: m.ScheduledAt,
@@ -620,4 +678,12 @@ func matchToResponse(m *MatchFull) *MatchResponse {
 		TeamB:       m.TeamB,
 		CreatedAt:   m.CreatedAt,
 	}
+	if m.Result != nil {
+		resp.WinnerTeam = m.Result.WinnerTeam
+		resp.TotalGamesA = m.Result.TotalGamesA
+		resp.TotalGamesB = m.Result.TotalGamesB
+		resp.GameDiff = m.Result.GameDiff
+		resp.Sets = m.Result.Sets
+	}
+	return resp
 }

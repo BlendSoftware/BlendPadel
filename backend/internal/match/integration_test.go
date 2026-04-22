@@ -76,7 +76,7 @@ func createPlayer(t *testing.T, ctx context.Context, pool *pgxpool.Pool, q *db.Q
 
 func newMatchService(t *testing.T, pool *pgxpool.Pool, q *db.Queries) *match.Service {
 	t.Helper()
-	matchRepo := match.NewPostgresRepo(q)
+	matchRepo := match.NewPostgresRepo(q, pool)
 	rankingRepo := ranking.NewPostgresRepo(q)
 	rankingSvc := ranking.NewService(pool, rankingRepo)
 	trustRepo := trust.NewPostgresRepo(q)
@@ -220,7 +220,7 @@ func TestIntegration_DisputeFlow(t *testing.T) {
 	require.NoError(t, err)
 
 	// Match should now be in disputed status.
-	matchRepo := match.NewPostgresRepo(q)
+	matchRepo := match.NewPostgresRepo(q, pool)
 	m, err := matchRepo.GetMatch(ctx, resp.ID)
 	require.NoError(t, err)
 	assert.Equal(t, match.StatusDisputed, m.Status)
@@ -275,7 +275,7 @@ func TestIntegration_ResolveDisputeByModerator(t *testing.T) {
 	require.NoError(t, err)
 
 	// Match should now be sealed.
-	matchRepo := match.NewPostgresRepo(q)
+	matchRepo := match.NewPostgresRepo(q, pool)
 	m, err := matchRepo.GetMatch(ctx, resp.ID)
 	require.NoError(t, err)
 	assert.Equal(t, match.StatusSealed, m.Status)
@@ -396,7 +396,7 @@ func TestIntegration_AutoSealer(t *testing.T) {
 	sealer.RunOnce(ctx)
 
 	// Verify the match is now sealed.
-	matchRepo := match.NewPostgresRepo(q)
+	matchRepo := match.NewPostgresRepo(q, pool)
 	m, err := matchRepo.GetMatch(ctx, resp.ID)
 	require.NoError(t, err)
 	assert.Equal(t, match.StatusSealed, m.Status)

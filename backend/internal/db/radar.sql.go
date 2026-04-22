@@ -29,7 +29,7 @@ LEFT JOIN match_players mp ON mp.match_id = m.id
 WHERE m.status = 'pending_result'
   AND m.scheduled_at BETWEEN NOW() AND NOW() + INTERVAL '1 hour'
   AND m.location IS NOT NULL
-  AND ST_DWithin(m.location, ST_MakePoint($2, $1)::geography, 5000)
+  AND ST_DWithin(m.location, ST_MakePoint($2, $1)::geography, $4)
   AND (ca.trust_score >= 70 OR viewer.trust_score < 70)
 GROUP BY m.id, ca.name, viewer.trust_score
 ORDER BY m.scheduled_at ASC
@@ -39,6 +39,7 @@ type GetRadarAlertsParams struct {
 	StMakepoint   interface{} `json:"st_makepoint"`
 	StMakepoint_2 interface{} `json:"st_makepoint_2"`
 	ID            pgtype.UUID `json:"id"`
+	StDwithin     interface{} `json:"st_dwithin"`
 }
 
 type GetRadarAlertsRow struct {
@@ -53,9 +54,14 @@ type GetRadarAlertsRow struct {
 	JoinedCount    int32              `json:"joined_count"`
 }
 
-// Radar alerts: matches within 5km and next 1 hour, trust filter, no ELO filter
+// Radar alerts: matches within radius and next 1 hour, trust filter, no ELO filter
 func (q *Queries) GetRadarAlerts(ctx context.Context, arg GetRadarAlertsParams) ([]GetRadarAlertsRow, error) {
-	rows, err := q.db.Query(ctx, getRadarAlerts, arg.StMakepoint, arg.StMakepoint_2, arg.ID)
+	rows, err := q.db.Query(ctx, getRadarAlerts,
+		arg.StMakepoint,
+		arg.StMakepoint_2,
+		arg.ID,
+		arg.StDwithin,
+	)
 	if err != nil {
 		return nil, err
 	}

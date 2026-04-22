@@ -15,12 +15,21 @@ import (
 
 // postgresRepo is the PostgreSQL implementation of Repository.
 type postgresRepo struct {
-	q *db.Queries
+	q    *db.Queries
+	pool interface{ BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) }
 }
 
-// NewPostgresRepo creates a new Repository backed by the given sqlc Queries.
-func NewPostgresRepo(q *db.Queries) Repository {
-	return &postgresRepo{q: q}
+// NewPostgresRepo creates a new Repository backed by the given sqlc Queries and pool.
+func NewPostgresRepo(q *db.Queries, pool interface{ BeginTx(ctx context.Context, txOptions pgx.TxOptions) (pgx.Tx, error) }) Repository {
+	return &postgresRepo{q: q, pool: pool}
+}
+
+func (r *postgresRepo) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return r.pool.BeginTx(ctx, pgx.TxOptions{})
+}
+
+func (r *postgresRepo) WithTx(tx pgx.Tx) Repository {
+	return &postgresRepo{q: db.New(tx), pool: r.pool}
 }
 
 func (r *postgresRepo) CreateMatch(ctx context.Context, in CreateMatchInput) (*MatchFull, error) {
@@ -525,6 +534,38 @@ func (r *postgresRepo) GetPlayerGenders(ctx context.Context, playerIDs []uuid.UU
 	result := make(map[uuid.UUID]string, len(rows))
 	for _, row := range rows {
 		result[pgToUUID(row.ID)] = row.Gender
+	}
+	return result, nil
+}
+
+func (r *postgresRepo) GetPlayerELOs(ctx context.Context, playerIDs []uuid.UUID) (map[uuid.UUID]int, error) {
+	pgIDs := make([]pgtype.UUID, len(playerIDs))
+	for i, id := range playerIDs {
+		pgIDs[i] = uuidToPg(id)
+	}
+	rows, err := r.q.GetPlayerELOs(ctx, pgIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uuid.UUID]int, len(rows))
+	for _, row := range rows {
+		result[pgToUUID(row.ID)] = int(row.Elo)
+	}
+	return result, nil
+}
+
+func (r *postgresRepo) GetPlayerStatuses(ctx context.Context, playerIDs []uuid.UUID) (map[uuid.UUID]string, error) {
+	pgIDs := make([]pgtype.UUID, len(playerIDs))
+	for i, id := range playerIDs {
+		pgIDs[i] = uuidToPg(id)
+	}
+	rows, err := r.q.GetPlayerStatuses(ctx, pgIDs)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[uuid.UUID]string, len(rows))
+	for _, row := range rows {
+		result[pgToUUID(row.ID)] = row.Status
 	}
 	return result, nil
 }

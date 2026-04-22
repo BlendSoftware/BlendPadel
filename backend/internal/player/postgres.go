@@ -190,8 +190,11 @@ func (r *postgresRepo) CountReportsByRegion(ctx context.Context, regionID uuid.U
 	})
 }
 
-func (r *postgresRepo) SearchByName(ctx context.Context, query string) ([]PlayerSearchResult, error) {
-	rows, err := r.q.SearchPlayersByName(ctx, pgtype.Text{String: query, Valid: true})
+func (r *postgresRepo) SearchByName(ctx context.Context, query string, limit int32) ([]PlayerSearchResult, error) {
+	rows, err := r.q.SearchPlayersByName(ctx, db.SearchPlayersByNameParams{
+		Query:       pgtype.Text{String: query, Valid: true},
+		SearchLimit: limit,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("search players by name: %w", err)
 	}

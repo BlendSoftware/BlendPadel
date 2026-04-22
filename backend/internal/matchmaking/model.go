@@ -16,7 +16,8 @@ var (
 	ErrAlreadyRespondent = errors.New("player is already a respondent")
 	ErrFlareNotActive    = errors.New("flare is not active")
 	ErrFlareFull         = errors.New("flare has reached max players")
-	ErrNotFlareOwner     = errors.New("caller is not the flare owner")
+	ErrNotFlareOwner       = errors.New("caller is not the flare owner")
+	ErrOnboardingRequired  = errors.New("player must complete onboarding before creating a flare")
 )
 
 // CreateFlareRequest is the payload for creating a new flare.

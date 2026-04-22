@@ -73,10 +73,20 @@ FROM users
 WHERE LOWER(name) LIKE LOWER('%' || @query || '%')
   AND status IN ('active', 'calibration')
 ORDER BY elo DESC
-LIMIT 10;
+LIMIT @search_limit;
 
 -- name: GetPlayerGenders :many
 SELECT id, gender
+FROM users
+WHERE id = ANY($1::uuid[]);
+
+-- name: GetPlayerELOs :many
+SELECT id, elo
+FROM users
+WHERE id = ANY($1::uuid[]);
+
+-- name: GetPlayerStatuses :many
+SELECT id, status
 FROM users
 WHERE id = ANY($1::uuid[]);
 

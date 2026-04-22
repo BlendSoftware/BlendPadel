@@ -128,7 +128,7 @@ func main() {
 		trustSvc := trust.NewService(trustRepo)
 
 		// Match routes.
-		matchRepo := match.NewPostgresRepo(queries)
+		matchRepo := match.NewPostgresRepo(queries, pool)
 		matchSvc := match.NewService(matchRepo, rankingSvc, trustSvc)
 		matchHandler := match.NewHandler(matchSvc)
 		match.RegisterRoutes(r, matchHandler, authMw)
@@ -142,6 +142,7 @@ func main() {
 		// Radar routes.
 		radarRepo := radar.NewPostgresRadarRepo(queries)
 		radarSvc := radar.NewService(radarRepo)
+		radarSvc.SetPreferencesFetcher(player.NewPrefsAdapter(playerRepo))
 		radarHandler := radar.NewHandler(radarSvc)
 		r.Group(func(r chi.Router) {
 			r.Use(authMw)
@@ -159,6 +160,9 @@ func main() {
 		// Matchmaking routes.
 		matchmakingFlareRepo := matchmaking.NewPostgresFlareRepo(pool, queries)
 		matchmakingSvc := matchmaking.NewService(matchmakingFlareRepo, matchSvc, pool)
+		prefsAdapter := player.NewPrefsAdapter(playerRepo)
+		matchmakingSvc.SetPreferencesFetcher(prefsAdapter)
+		matchmakingSvc.SetPlayerChecker(prefsAdapter)
 		matchmakingHandler := matchmaking.NewHandler(matchmakingSvc)
 		r.Group(func(r chi.Router) {
 			r.Use(authMw)
@@ -177,6 +181,9 @@ func main() {
 		venueHandler := venue.NewHandler(venueSvc)
 		venue.RegisterRoutes(r, venueHandler, authMw)
 		log.Info().Msg("venue routes registered")
+
+		// Wire venue coords fetcher into match service.
+		matchSvc.SetVenueCoordsFetcher(venue.NewCoordsAdapter(venueRepo))
 
 		// Partnership routes.
 		partnershipRepo := partnership.NewPostgresRepo(queries)

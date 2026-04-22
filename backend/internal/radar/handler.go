@@ -39,16 +39,19 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	radiusKm := DefaultRadiusKm
+	radiusKm := 0.0
+	radiusExplicit := false
 	if v := r.URL.Query().Get("radius_km"); v != "" {
 		radiusKm, err = strconv.ParseFloat(v, 64)
 		if err != nil {
 			response.Problem(w, http.StatusBadRequest, "Bad Request", "radius_km must be a valid float")
 			return
 		}
+		radiusExplicit = true
 	}
 
 	var eloMin, eloMax int32
+	eloExplicit := false
 	if v := r.URL.Query().Get("elo_min"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 32)
 		if err != nil {
@@ -56,6 +59,7 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		eloMin = int32(n)
+		eloExplicit = true
 	}
 	if v := r.URL.Query().Get("elo_max"); v != "" {
 		n, err := strconv.ParseInt(v, 10, 32)
@@ -64,6 +68,28 @@ func (h *Handler) GetMatches(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		eloMax = int32(n)
+		eloExplicit = true
+	}
+
+	// Apply player preferences as defaults when params not explicitly provided.
+	if h.svc.prefsFetcher != nil && (!radiusExplicit || !eloExplicit) {
+		prefs, pErr := h.svc.prefsFetcher.GetPreferences(r.Context(), userID)
+		if pErr == nil && prefs != nil {
+			if !radiusExplicit && prefs.RadarRadiusKM > 0 {
+				radiusKm = float64(prefs.RadarRadiusKM)
+			}
+			if !eloExplicit && (prefs.ELOMinDelta != 0 || prefs.ELOMaxDelta != 0) {
+				playerELO, eErr := h.svc.prefsFetcher.GetPlayerELO(r.Context(), userID)
+				if eErr == nil {
+					eloMin = playerELO + prefs.ELOMinDelta
+					eloMax = playerELO + prefs.ELOMaxDelta
+				}
+			}
+		}
+	}
+
+	if radiusKm <= 0 {
+		radiusKm = DefaultRadiusKm
 	}
 
 	var cursor *RadarCursor
@@ -127,10 +153,26 @@ func (h *Handler) GetAlerts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	alertRadiusKm := 0.0
+	if v := r.URL.Query().Get("radius_km"); v != "" {
+		alertRadiusKm, err = strconv.ParseFloat(v, 64)
+		if err != nil {
+			response.Problem(w, http.StatusBadRequest, "Bad Request", "radius_km must be a valid float")
+			return
+		}
+	}
+	if alertRadiusKm <= 0 && h.svc.prefsFetcher != nil {
+		prefs, pErr := h.svc.prefsFetcher.GetPreferences(r.Context(), userID)
+		if pErr == nil && prefs != nil && prefs.RadarRadiusKM > 0 {
+			alertRadiusKm = float64(prefs.RadarRadiusKM)
+		}
+	}
+
 	result, err := h.svc.GetAlerts(r.Context(), GetAlertsParams{
-		ViewerUserID: userID,
-		Lat:          lat,
-		Lng:          lng,
+		ViewerUserID:  userID,
+		Lat:           lat,
+		Lng:           lng,
+		RadiusKm:      alertRadiusKm,
 	})
 	if err != nil {
 		response.Problem(w, http.StatusInternalServerError, "Internal Server Error", "failed to fetch radar alerts")

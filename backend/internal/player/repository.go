@@ -71,5 +71,5 @@ type Repository interface {
 	CountReportsByRegion(ctx context.Context, regionID uuid.UUID, statusFilter string) (int64, error)
 
 	// SearchByName returns players matching the given name query (case-insensitive, partial match).
-	SearchByName(ctx context.Context, query string) ([]PlayerSearchResult, error)
+	SearchByName(ctx context.Context, query string, limit int32) ([]PlayerSearchResult, error)
 }

@@ -124,6 +124,29 @@ func (h *Handler) DisputeMatch(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, http.StatusOK, map[string]string{"status": "disputed"})
 }
 
+// GetMatchDetail handles GET /matches/{id}.
+func (h *Handler) GetMatchDetail(w http.ResponseWriter, r *http.Request) {
+	_, ok := auth.GetUserID(r.Context())
+	if !ok {
+		response.Problem(w, http.StatusUnauthorized, "Unauthorized", "missing authentication")
+		return
+	}
+
+	matchID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.Problem(w, http.StatusBadRequest, "Bad Request", "invalid match id")
+		return
+	}
+
+	result, err := h.svc.GetMatchDetail(r.Context(), matchID)
+	if err != nil {
+		mapError(w, err)
+		return
+	}
+
+	response.JSON(w, http.StatusOK, result)
+}
+
 // GetActiveMatches handles GET /players/{playerID}/matches/active.
 func (h *Handler) GetActiveMatches(w http.ResponseWriter, r *http.Request) {
 	_, ok := auth.GetUserID(r.Context())
@@ -254,35 +277,25 @@ func (h *Handler) CancelMatch(w http.ResponseWriter, r *http.Request) {
 // --- helpers ---
 
 func mapError(w http.ResponseWriter, err error) {
-	switch err {
-	case ErrMatchNotFound:
+	switch {
+	case errors.Is(err, ErrMatchNotFound), errors.Is(err, ErrDisputeNotFound):
 		response.Problem(w, http.StatusNotFound, "Not Found", err.Error())
-	case ErrForbidden, ErrNotCaptain:
+	case errors.Is(err, ErrForbidden), errors.Is(err, ErrNotCaptain):
 		response.Problem(w, http.StatusForbidden, "Forbidden", err.Error())
-	case ErrInvalidTransition:
+	case errors.Is(err, ErrInvalidTransition), errors.Is(err, ErrWindowClosed), errors.Is(err, ErrMatchNotCancellable):
 		response.Problem(w, http.StatusConflict, "Conflict", err.Error())
-	case ErrWindowClosed:
-		response.Problem(w, http.StatusConflict, "Conflict", err.Error())
-	case ErrInvalidSets:
+	case errors.Is(err, ErrInvalidSets), errors.Is(err, ErrInvalidTeamComposition):
 		response.Problem(w, http.StatusUnprocessableEntity, "Validation Error", err.Error())
-	case ErrInvalidMatchType:
+	case errors.Is(err, ErrGenderMismatch):
+		response.JSON(w, http.StatusUnprocessableEntity, map[string]string{
+			"error_code": "GENDER_MISMATCH",
+			"message":    err.Error(),
+		})
+	case errors.Is(err, ErrInvalidMatchType):
 		response.Problem(w, http.StatusBadRequest, "Bad Request", err.Error())
-	case ErrMatchNotCancellable:
-		response.Problem(w, http.StatusConflict, "Conflict", err.Error())
-	case ErrDisputeNotFound:
-		response.Problem(w, http.StatusNotFound, "Not Found", err.Error())
+	case errors.Is(err, ErrPlayerBanned):
+		response.Problem(w, http.StatusForbidden, "Forbidden", err.Error())
 	default:
-		if errors.Is(err, ErrGenderMismatch) {
-			response.JSON(w, http.StatusUnprocessableEntity, map[string]string{
-				"error_code": "GENDER_MISMATCH",
-				"message":    err.Error(),
-			})
-			return
-		}
-		if errors.Is(err, ErrInvalidTeamComposition) {
-			response.Problem(w, http.StatusUnprocessableEntity, "Validation Error", err.Error())
-			return
-		}
 		response.Problem(w, http.StatusInternalServerError, "Internal Server Error", err.Error())
 	}
 }
