@@ -126,9 +126,13 @@ export function MatchDetailPage() {
     )
   }
 
-  const scoreString = selectedMatch.result
-    ? selectedMatch.result.sets.map((set) => `${set.team_a_games}-${set.team_b_games}`).join(' / ')
+  const setsData = selectedMatch.sets ?? selectedMatch.result?.sets
+  const scoreString = setsData
+    ? setsData.map((set) => `${set.team_a_games}-${set.team_b_games}`).join(' / ')
     : '--'
+  const winnerLabel = selectedMatch.winner_team
+    ? `GANADOR: EQUIPO ${selectedMatch.winner_team}`
+    : null
 
   const canConfirmDispute = selectedMatch.status === 'awaiting_confirmation'
   const canSubmitResult = selectedMatch.status === 'pending_result'
@@ -186,6 +190,7 @@ export function MatchDetailPage() {
         <div className={styles.heroScoreBlock} onMouseMove={tilt} onMouseLeave={resetTilt}>
           <p className={styles.heroKicker}>MARCADOR</p>
           <p className={styles.score}>{scoreString}</p>
+          {winnerLabel && <p className={styles.heroKicker}>{winnerLabel}</p>}
           <p className={styles.heroMeta}>PARTIDO #{selectedMatch.id.slice(0, 8).toUpperCase()}</p>
         </div>
       </motion.section>

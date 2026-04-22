@@ -154,26 +154,23 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
     }
   },
 
-  // GET /matches/{id} does not exist in the backend.
-  // We resolve from the already-fetched list. If not found, try fetching all
-  // matches first (e.g. when navigating directly to the detail page).
   fetchMatch: async (id) => {
     set({ isLoading: true, error: null })
-    let found = get().matches.find((m) => m.id === id) ?? null
-    if (!found) {
-      // Attempt to load the full list and retry
-      await get().fetchMatches()
-      found = get().matches.find((m) => m.id === id) ?? null
-    }
-    if (found) {
-      set({ selectedMatch: found, isLoading: false })
-    } else {
-      set({ error: 'Partido no encontrado', isLoading: false })
+    try {
+      const res = await api.get<Record<string, unknown>>(`/matches/${id}`)
+      const match = hydrateMatch(res.data)
+      set((s) => ({
+        selectedMatch: match,
+        matches: s.matches.map((m) => (m.id === id ? match : m)),
+        isLoading: false,
+      }))
+    } catch (e: unknown) {
+      const message = extractApiError(e, 'Partido no encontrado')
+      set({ error: message, isLoading: false })
     }
   },
 
   refreshMatch: async (id) => {
-    await get().fetchMatches()
     await get().fetchMatch(id)
   },
 
@@ -185,7 +182,13 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
       set((s) => ({ matches: [match, ...s.matches], isActionLoading: false }))
       return match
     } catch (e: unknown) {
-      const message = extractApiError(e, 'Error al crear partido')
+      const axErr = e as { response?: { status?: number } }
+      let message: string
+      if (axErr.response?.status === 403) {
+        message = 'No se puede crear el partido: uno de los jugadores está suspendido.'
+      } else {
+        message = extractApiError(e, 'Error al crear partido')
+      }
       set({ error: message, isActionLoading: false })
       throw e
     }
@@ -305,6 +308,7 @@ export const useMatchStore = create<MatchState & MatchActions>((set, get) => ({
           q: query.trim(),
           exclude_ids: exclude.length ? exclude.join(',') : undefined,
           match_type: options?.matchType,
+          limit: 20,
         },
       })
       set({ searchResults: res.data ?? [], isSearching: false })

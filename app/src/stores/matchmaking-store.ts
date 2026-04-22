@@ -50,7 +50,7 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       const data = Array.isArray(res.data) ? res.data : (res.data.items ?? res.data.Items ?? [])
       set({ flares: data, isLoading: false })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cargar desafÃ­os'
+      const message = e instanceof Error ? e.message : 'Error al cargar desafíos'
       set({ error: message, isLoading: false })
     }
   },
@@ -78,9 +78,16 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       set({ myFlare: res.data, isLoading: false })
     } catch (e: any) {
       const status = e?.response?.status
-      const message = status === 409
-        ? 'Ya tenÃ©s un desafÃ­o activo. Cancelalo antes de crear uno nuevo.'
-        : (e instanceof Error ? e.message : 'Error al crear desafÃ­o')
+      let message: string
+      if (status === 409) {
+        message = 'Ya tenés un desafío activo. Cancelalo antes de crear uno nuevo.'
+      } else if (status === 422) {
+        message = 'Completá el cuestionario de onboarding antes de crear un desafío.'
+      } else if (status === 403) {
+        message = 'Tu cuenta está suspendida y no podés crear desafíos.'
+      } else {
+        message = e instanceof Error ? e.message : 'Error al crear desafío'
+      }
       set({ error: message, isLoading: false })
       throw e
     }
@@ -95,7 +102,7 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       await get().fetchFlares()
       set({ isLoading: false })
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al aceptar desafÃ­o'
+      const message = e instanceof Error ? e.message : 'Error al aceptar desafío'
       set({ error: message, isLoading: false })
       throw e
     }
@@ -109,7 +116,7 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       // Also remove from wall
       set((s) => ({ flares: s.flares.filter((f) => f.id !== flareId) }))
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : 'Error al cancelar desafÃ­o'
+      const message = e instanceof Error ? e.message : 'Error al cancelar desafío'
       set({ error: message, isLoading: false })
       throw e
     }

@@ -76,10 +76,17 @@ export interface MatchDetail {
   team_b: MatchPlayer[]
   captain_a_id: string
   captain_b_id: string
+  avg_elo?: number
+  venue_id?: string
   scheduled_at: string
   latitude: number | null
   longitude: number | null
   result: MatchResult | null
+  winner_team?: 'A' | 'B' | null
+  total_games_a?: number
+  total_games_b?: number
+  game_diff?: number
+  sets?: SetScore[]
   dispute_reason: string | null
   created_at: string
 }

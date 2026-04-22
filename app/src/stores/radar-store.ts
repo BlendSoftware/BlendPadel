@@ -89,7 +89,7 @@ export const useRadarStore = create<RadarStore>()(
         set({ alertsLoading: true })
         try {
           const res = await api.get<{ items: RadarAlert[] } | RadarAlert[]>('/radar/alerts', {
-            params: { lat: loc.lat, lng: loc.lng },
+            params: { lat: loc.lat, lng: loc.lng, radius_km: get().radiusKm },
           })
           const data = Array.isArray(res.data) ? res.data : (res.data.items ?? [])
           set({ alerts: data, alertsLoading: false })
