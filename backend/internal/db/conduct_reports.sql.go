@@ -11,6 +11,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countAllReports = `-- name: CountAllReports :one
+SELECT COUNT(*)
+FROM conduct_reports cr
+WHERE (CASE WHEN $1::varchar = '' THEN TRUE ELSE cr.status = $1::varchar END)
+`
+
+func (q *Queries) CountAllReports(ctx context.Context, dollar_1 string) (int64, error) {
+	row := q.db.QueryRow(ctx, countAllReports, dollar_1)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countReportsByRegion = `-- name: CountReportsByRegion :one
 SELECT COUNT(*)
 FROM conduct_reports cr
@@ -64,6 +77,50 @@ func (q *Queries) CreateReport(ctx context.Context, arg CreateReportParams) (Con
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const getAllReports = `-- name: GetAllReports :many
+SELECT cr.id, cr.reporter_id, cr.reported_id, cr.match_id, cr.reason, cr.status, cr.moderator_id, cr.created_at, cr.updated_at
+FROM conduct_reports cr
+WHERE (CASE WHEN $1::varchar = '' THEN TRUE ELSE cr.status = $1::varchar END)
+ORDER BY cr.created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type GetAllReportsParams struct {
+	Column1 string `json:"column_1"`
+	Limit   int32  `json:"limit"`
+	Offset  int32  `json:"offset"`
+}
+
+func (q *Queries) GetAllReports(ctx context.Context, arg GetAllReportsParams) ([]ConductReport, error) {
+	rows, err := q.db.Query(ctx, getAllReports, arg.Column1, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ConductReport{}
+	for rows.Next() {
+		var i ConductReport
+		if err := rows.Scan(
+			&i.ID,
+			&i.ReporterID,
+			&i.ReportedID,
+			&i.MatchID,
+			&i.Reason,
+			&i.Status,
+			&i.ModeratorID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getReportsByPlayer = `-- name: GetReportsByPlayer :many
@@ -164,7 +221,7 @@ func (q *Queries) GetReportsByRegion(ctx context.Context, arg GetReportsByRegion
 
 const isMatchCompleted = `-- name: IsMatchCompleted :one
 SELECT EXISTS(
-    SELECT 1 FROM matches WHERE id = $1 AND status = 'completed'
+    SELECT 1 FROM matches WHERE id = $1 AND status = 'sealed'
 )
 `
 

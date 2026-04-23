@@ -56,10 +56,13 @@ func (s *Service) GetRanking(ctx context.Context, callerID uuid.UUID, regionID *
 		return RankingPage{}, err
 	}
 
+	regionName, _ := s.repo.GetRegionName(ctx, *regionID)
+
 	return RankingPage{
-		RegionID: *regionID,
-		Entries:  entries,
-		Total:    int64(len(entries)),
+		RegionID:   *regionID,
+		RegionName: regionName,
+		Entries:    entries,
+		Total:      int64(len(entries)),
 	}, nil
 }
 

@@ -143,7 +143,7 @@ func (e *profileTestEnv) seedCompletedMatch(t *testing.T, playerAID, playerBID s
 	var matchID pgtype.UUID
 	err := e.pool.QueryRow(ctx, `
 		INSERT INTO matches (status, scheduled_at, captain_a_id, captain_b_id)
-		VALUES ('completed', NOW(), $1::uuid, $2::uuid)
+		VALUES ('sealed', NOW(), $1::uuid, $2::uuid)
 		RETURNING id
 	`, playerAID, playerBID).Scan(&matchID)
 	if err != nil {

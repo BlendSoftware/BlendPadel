@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 	"unicode"
 
@@ -60,6 +61,10 @@ func validatePassword(password string) error {
 
 // Register creates a new user account.
 func (s *Service) Register(ctx context.Context, req RegisterRequest) (*db.User, error) {
+	if strings.TrimSpace(req.Email) == "" {
+		return nil, ErrEmailRequired
+	}
+
 	if err := validatePassword(req.Password); err != nil {
 		return nil, err
 	}
@@ -106,7 +111,12 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, ip string) (*Logi
 	s.rateLimiter.Reset(ip)
 
 	userID := uuid.UUID(user.ID.Bytes)
-	resp, err := s.generateTokenPair(ctx, userID, user.Role, nil, uuid.New())
+	var regionID *uuid.UUID
+	if user.RegionID.Valid {
+		rid := uuid.UUID(user.RegionID.Bytes)
+		regionID = &rid
+	}
+	resp, err := s.generateTokenPair(ctx, userID, user.Role, regionID, uuid.New())
 	if err != nil {
 		return nil, err
 	}
@@ -143,8 +153,16 @@ func (s *Service) Refresh(ctx context.Context, req RefreshRequest) (*LoginRespon
 		return nil, fmt.Errorf("revoking token: %w", err)
 	}
 
+	// Fetch region_id for JWT claims.
+	var refreshRegionID *uuid.UUID
+	refreshUser, userErr := s.repo.GetUserByID(ctx, userID)
+	if userErr == nil && refreshUser.RegionID.Valid {
+		rid := uuid.UUID(refreshUser.RegionID.Bytes)
+		refreshRegionID = &rid
+	}
+
 	// Issue new pair with same family_id.
-	resp, err := s.generateTokenPair(ctx, userID, "", nil, familyID)
+	resp, err := s.generateTokenPair(ctx, userID, "", refreshRegionID, familyID)
 	if err != nil {
 		return nil, err
 	}

@@ -370,3 +370,29 @@ func (q *Queries) UpdateMatchStatus(ctx context.Context, arg UpdateMatchStatusPa
 	_, err := q.db.Exec(ctx, updateMatchStatus, arg.ID, arg.Status, arg.SealedBy)
 	return err
 }
+
+const updateMatchStatusCAS = `-- name: UpdateMatchStatusCAS :one
+UPDATE matches
+SET status = $3, sealed_by = $4, updated_at = NOW()
+WHERE id = $1 AND status = $2
+RETURNING id
+`
+
+type UpdateMatchStatusCASParams struct {
+	ID       pgtype.UUID `json:"id"`
+	Status   string      `json:"status"`
+	Status_2 string      `json:"status_2"`
+	SealedBy pgtype.Text `json:"sealed_by"`
+}
+
+func (q *Queries) UpdateMatchStatusCAS(ctx context.Context, arg UpdateMatchStatusCASParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, updateMatchStatusCAS,
+		arg.ID,
+		arg.Status,
+		arg.Status_2,
+		arg.SealedBy,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}

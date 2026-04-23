@@ -27,7 +27,8 @@ SELECT
     p.name AS creator_name,
     ST_Y(f.location::geometry) AS lat,
     ST_X(f.location::geometry) AS lng,
-    ST_Distance(f.location, ST_MakePoint(@lng, @lat)::geography) AS distance_meters
+    ST_Distance(f.location, ST_MakePoint(@lng, @lat)::geography) AS distance_meters,
+    (SELECT COUNT(*)::INT FROM flare_respondents fr WHERE fr.flare_id = f.id) AS respondent_count
 FROM matchmaking_flares f
 JOIN users p ON p.id = f.player_id
 JOIN users viewer ON viewer.id = @viewer_player_id
@@ -63,7 +64,8 @@ SELECT
     p.name AS creator_name,
     ST_Y(f.location::geometry) AS lat,
     ST_X(f.location::geometry) AS lng,
-    ST_Distance(f.location, ST_MakePoint(@lng, @lat)::geography) AS distance_meters
+    ST_Distance(f.location, ST_MakePoint(@lng, @lat)::geography) AS distance_meters,
+    (SELECT COUNT(*)::INT FROM flare_respondents fr WHERE fr.flare_id = f.id) AS respondent_count
 FROM matchmaking_flares f
 JOIN users p ON p.id = f.player_id
 JOIN users viewer ON viewer.id = @viewer_player_id

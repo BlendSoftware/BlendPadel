@@ -286,16 +286,22 @@ func (s *Service) SubmitResult(ctx context.Context, matchID, submitterID uuid.UU
 		return fmt.Errorf("update status: %w", err)
 	}
 
+	confirmerID := m.CaptainBID
+	if submitterID == m.CaptainBID {
+		confirmerID = m.CaptainAID
+	}
+
 	log.Info().
 		Str("match_id", matchID.String()).
 		Str("submitted_by", submitterID.String()).
+		Str("confirmer", confirmerID.String()).
 		Str("winner", winnerTeam).
-		Msg("resultado pendiente de validación por Capitán B")
+		Msg("resultado pendiente de validación por capitán opuesto")
 
 	if s.notifyHook != nil {
 		s.notifyHook(ctx, "result_submitted", map[string]interface{}{
-			"match_id":    matchID,
-			"captain_b_id": m.CaptainBID,
+			"match_id":     matchID,
+			"confirmer_id": confirmerID,
 		})
 	}
 
@@ -314,12 +320,16 @@ func (s *Service) ConfirmMatch(ctx context.Context, matchID, confirmerID uuid.UU
 		return fmt.Errorf("%w: match is in status %s", ErrInvalidTransition, m.Status)
 	}
 
-	if confirmerID != m.CaptainBID {
-		return fmt.Errorf("%w: only captain_b can confirm", ErrForbidden)
-	}
-
 	if m.Result == nil {
 		return fmt.Errorf("match has no result")
+	}
+
+	expectedConfirmer := m.CaptainBID
+	if m.Result.SubmittedBy == m.CaptainBID {
+		expectedConfirmer = m.CaptainAID
+	}
+	if confirmerID != expectedConfirmer {
+		return fmt.Errorf("%w: only the opposite captain can confirm", ErrForbidden)
 	}
 
 	// Check 6h window.
@@ -327,10 +337,14 @@ func (s *Service) ConfirmMatch(ctx context.Context, matchID, confirmerID uuid.UU
 		return ErrWindowClosed
 	}
 
-	return s.sealMatchAtomic(ctx, m, "captain_b")
+	sealedBy := "captain_b"
+	if m.Result.SubmittedBy == m.CaptainBID {
+		sealedBy = "captain_a"
+	}
+	return s.sealMatchAtomic(ctx, m, sealedBy)
 }
 
-// DisputeMatch is called by captain_b to dispute the result within the 6h window.
+// DisputeMatch is called by the opposite captain to dispute the result within the 6h window.
 func (s *Service) DisputeMatch(ctx context.Context, matchID, disputerID uuid.UUID, req DisputeRequest) error {
 	m, err := s.repo.GetMatchWithPlayers(ctx, matchID)
 	if err != nil {
@@ -341,12 +355,16 @@ func (s *Service) DisputeMatch(ctx context.Context, matchID, disputerID uuid.UUI
 		return fmt.Errorf("%w: match is in status %s", ErrInvalidTransition, m.Status)
 	}
 
-	if disputerID != m.CaptainBID {
-		return fmt.Errorf("%w: only captain_b can dispute", ErrForbidden)
-	}
-
 	if m.Result == nil {
 		return fmt.Errorf("match has no result")
+	}
+
+	expectedDisputer := m.CaptainBID
+	if m.Result.SubmittedBy == m.CaptainBID {
+		expectedDisputer = m.CaptainAID
+	}
+	if disputerID != expectedDisputer {
+		return fmt.Errorf("%w: only the opposite captain can dispute", ErrForbidden)
 	}
 
 	// Check 6h window.
@@ -354,8 +372,8 @@ func (s *Service) DisputeMatch(ctx context.Context, matchID, disputerID uuid.UUI
 		return ErrWindowClosed
 	}
 
-	if err := s.repo.UpdateStatus(ctx, matchID, StatusDisputed, ""); err != nil {
-		return fmt.Errorf("update status: %w", err)
+	if err := s.repo.UpdateStatusCAS(ctx, matchID, StatusAwaitingConfirmation, StatusDisputed, ""); err != nil {
+		return err
 	}
 
 	if _, err := s.repo.CreateDispute(ctx, matchID, disputerID, req.Reason); err != nil {
@@ -592,8 +610,8 @@ func (s *Service) sealMatchAtomic(ctx context.Context, m *MatchFull, sealedBy st
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	txRepo := s.repo.WithTx(tx)
-	if err := txRepo.UpdateStatus(ctx, m.ID, StatusSealed, sealedBy); err != nil {
-		return fmt.Errorf("update status: %w", err)
+	if err := txRepo.UpdateStatusCAS(ctx, m.ID, m.Status, StatusSealed, sealedBy); err != nil {
+		return err
 	}
 
 	eloResults, err := s.rankingService.ApplyELOTx(ctx, tx, ranking.MatchELOInput{

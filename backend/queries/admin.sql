@@ -4,7 +4,7 @@ SELECT
     (SELECT COUNT(*) FROM users WHERE role = 'player' AND status = 'active')::BIGINT                  AS active_players,
     (SELECT COUNT(*) FROM users WHERE status IN ('banned_soft', 'banned_hard'))::BIGINT               AS banned_players,
     (SELECT COUNT(*) FROM matches)::BIGINT                                                            AS total_matches,
-    (SELECT COUNT(*) FROM matches WHERE status = 'completed')::BIGINT                                 AS completed_matches,
+    (SELECT COUNT(*) FROM matches WHERE status = 'sealed')::BIGINT                                    AS completed_matches,
     (SELECT COUNT(*) FROM disputes WHERE status = 'pending')::BIGINT                                  AS pending_disputes,
     COALESCE((SELECT AVG(elo) FROM users WHERE role = 'player' AND status = 'active'), 0)::FLOAT8     AS avg_elo,
     (SELECT COUNT(*) FROM users WHERE role = 'moderator')::BIGINT                                     AS total_moderators;

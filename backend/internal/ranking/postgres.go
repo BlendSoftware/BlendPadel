@@ -33,6 +33,10 @@ func (r *postgresRepo) UpdatePlayerELO(ctx context.Context, playerID uuid.UUID, 
 	})
 }
 
+func (r *postgresRepo) IncrementMatchCount(ctx context.Context, playerID uuid.UUID) error {
+	return r.q.IncrementMatchCount(ctx, pgtype.UUID{Bytes: playerID, Valid: true})
+}
+
 func (r *postgresRepo) InsertELOHistory(ctx context.Context, record ELOHistoryRecord) error {
 	_, err := r.q.InsertELOHistory(ctx, db.InsertELOHistoryParams{
 		PlayerID:  pgtype.UUID{Bytes: record.PlayerID, Valid: true},

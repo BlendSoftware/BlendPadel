@@ -20,6 +20,9 @@ type Repository interface {
 	// GetPlayerRankByGender returns the RANK() position filtered by gender.
 	GetPlayerRankByGender(ctx context.Context, playerID uuid.UUID, gender string) (int64, error)
 
+	// GetRegionName returns the display name for a region.
+	GetRegionName(ctx context.Context, regionID uuid.UUID) (string, error)
+
 	// GetAllRegions returns all regions ordered by name.
 	GetAllRegions(ctx context.Context) ([]RegionResponse, error)
 

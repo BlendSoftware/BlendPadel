@@ -38,6 +38,7 @@ dev.config.json
 *.out
 coverage.out
 coverage.html
+/backend/server
 
 # Docker
 .env.docker

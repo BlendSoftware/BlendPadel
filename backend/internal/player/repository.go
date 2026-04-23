@@ -70,6 +70,12 @@ type Repository interface {
 	// Pass an empty string for statusFilter to count all statuses.
 	CountReportsByRegion(ctx context.Context, regionID uuid.UUID, statusFilter string) (int64, error)
 
+	// GetAllReports returns paginated reports across all regions (for superadmin).
+	GetAllReports(ctx context.Context, statusFilter string, limit, offset int32) ([]db.ConductReport, error)
+
+	// CountAllReports returns the total count across all regions.
+	CountAllReports(ctx context.Context, statusFilter string) (int64, error)
+
 	// SearchByName returns players matching the given name query (case-insensitive, partial match).
 	SearchByName(ctx context.Context, query string, limit int32) ([]PlayerSearchResult, error)
 }

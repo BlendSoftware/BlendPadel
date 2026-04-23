@@ -176,11 +176,38 @@ func (s *Service) ReportConduct(ctx context.Context, reporterID uuid.UUID, match
 }
 
 // GetAdminReports returns paginated conduct reports filtered by the moderator's region.
+// When regionID is nil (superadmin), returns reports across all regions.
 // statusFilter can be "pending", "reviewed", "dismissed", or empty for all.
-func (s *Service) GetAdminReports(ctx context.Context, moderatorRegionID uuid.UUID, statusFilter string, limit, offset int32) (ReportListResponse, error) {
+func (s *Service) GetAdminReports(ctx context.Context, regionID *uuid.UUID, statusFilter string, limit, offset int32) (ReportListResponse, error) {
 	if statusFilter != "" && statusFilter != "pending" && statusFilter != "reviewed" && statusFilter != "dismissed" {
 		return ReportListResponse{}, fmt.Errorf("invalid status filter: must be one of pending, reviewed, dismissed")
 	}
+
+	if regionID == nil {
+		total, err := s.repo.CountAllReports(ctx, statusFilter)
+		if err != nil {
+			return ReportListResponse{}, fmt.Errorf("count reports: %w", err)
+		}
+		rows, err := s.repo.GetAllReports(ctx, statusFilter, limit, offset)
+		if err != nil {
+			return ReportListResponse{}, fmt.Errorf("get reports: %w", err)
+		}
+		reports := make([]ReportResponse, 0, len(rows))
+		for _, row := range rows {
+			reports = append(reports, ReportResponse{
+				ID:         pgtypeToUUID(row.ID),
+				ReporterID: pgtypeToUUID(row.ReporterID),
+				ReportedID: pgtypeToUUID(row.ReportedID),
+				MatchID:    pgtypeToUUID(row.MatchID),
+				Reason:     row.Reason,
+				Status:     row.Status,
+				CreatedAt:  row.CreatedAt.Time,
+			})
+		}
+		return ReportListResponse{Reports: reports, Total: total}, nil
+	}
+
+	moderatorRegionID := *regionID
 
 	total, err := s.repo.CountReportsByRegion(ctx, moderatorRegionID, statusFilter)
 	if err != nil {

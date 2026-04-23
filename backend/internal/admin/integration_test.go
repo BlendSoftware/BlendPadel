@@ -112,7 +112,7 @@ type stubAuthRepo struct {
 	// Embed a nil-safe no-op for unused methods.
 }
 
-func (s *stubAuthRepo) CreateUser(_ context.Context, _, _, _ string) (*db.User, error) {
+func (s *stubAuthRepo) CreateUser(_ context.Context, _, _, _, _ string) (*db.User, error) {
 	return nil, nil
 }
 func (s *stubAuthRepo) GetUserByEmail(_ context.Context, _ string) (*db.User, error) {

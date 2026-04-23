@@ -187,7 +187,8 @@ SELECT
     p.name AS creator_name,
     ST_Y(f.location::geometry) AS lat,
     ST_X(f.location::geometry) AS lng,
-    ST_Distance(f.location, ST_MakePoint($1, $2)::geography) AS distance_meters
+    ST_Distance(f.location, ST_MakePoint($1, $2)::geography) AS distance_meters,
+    (SELECT COUNT(*)::INT FROM flare_respondents fr WHERE fr.flare_id = f.id) AS respondent_count
 FROM matchmaking_flares f
 JOIN users p ON p.id = f.player_id
 JOIN users viewer ON viewer.id = $3
@@ -217,24 +218,25 @@ type GetActiveFlaresParams struct {
 }
 
 type GetActiveFlaresRow struct {
-	ID             pgtype.UUID        `json:"id"`
-	PlayerID       pgtype.UUID        `json:"player_id"`
-	ScheduledAt    pgtype.Timestamptz `json:"scheduled_at"`
-	EloMin         int32              `json:"elo_min"`
-	EloMax         int32              `json:"elo_max"`
-	MinPlayers     int32              `json:"min_players"`
-	MaxPlayers     int32              `json:"max_players"`
-	MatchType      string             `json:"match_type"`
-	VenueID        pgtype.UUID        `json:"venue_id"`
-	Status         string             `json:"status"`
-	MatchID        pgtype.UUID        `json:"match_id"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	CreatorName    pgtype.Text        `json:"creator_name"`
-	Lat            interface{}        `json:"lat"`
-	Lng            interface{}        `json:"lng"`
-	DistanceMeters interface{}        `json:"distance_meters"`
+	ID              pgtype.UUID        `json:"id"`
+	PlayerID        pgtype.UUID        `json:"player_id"`
+	ScheduledAt     pgtype.Timestamptz `json:"scheduled_at"`
+	EloMin          int32              `json:"elo_min"`
+	EloMax          int32              `json:"elo_max"`
+	MinPlayers      int32              `json:"min_players"`
+	MaxPlayers      int32              `json:"max_players"`
+	MatchType       string             `json:"match_type"`
+	VenueID         pgtype.UUID        `json:"venue_id"`
+	Status          string             `json:"status"`
+	MatchID         pgtype.UUID        `json:"match_id"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatorName     pgtype.Text        `json:"creator_name"`
+	Lat             interface{}        `json:"lat"`
+	Lng             interface{}        `json:"lng"`
+	DistanceMeters  interface{}        `json:"distance_meters"`
+	RespondentCount int32              `json:"respondent_count"`
 }
 
 func (q *Queries) GetActiveFlares(ctx context.Context, arg GetActiveFlaresParams) ([]GetActiveFlaresRow, error) {
@@ -274,6 +276,7 @@ func (q *Queries) GetActiveFlares(ctx context.Context, arg GetActiveFlaresParams
 			&i.Lat,
 			&i.Lng,
 			&i.DistanceMeters,
+			&i.RespondentCount,
 		); err != nil {
 			return nil, err
 		}
@@ -304,7 +307,8 @@ SELECT
     p.name AS creator_name,
     ST_Y(f.location::geometry) AS lat,
     ST_X(f.location::geometry) AS lng,
-    ST_Distance(f.location, ST_MakePoint($1, $2)::geography) AS distance_meters
+    ST_Distance(f.location, ST_MakePoint($1, $2)::geography) AS distance_meters,
+    (SELECT COUNT(*)::INT FROM flare_respondents fr WHERE fr.flare_id = f.id) AS respondent_count
 FROM matchmaking_flares f
 JOIN users p ON p.id = f.player_id
 JOIN users viewer ON viewer.id = $3
@@ -336,24 +340,25 @@ type GetActiveFlaresByMatchTypeParams struct {
 }
 
 type GetActiveFlaresByMatchTypeRow struct {
-	ID             pgtype.UUID        `json:"id"`
-	PlayerID       pgtype.UUID        `json:"player_id"`
-	ScheduledAt    pgtype.Timestamptz `json:"scheduled_at"`
-	EloMin         int32              `json:"elo_min"`
-	EloMax         int32              `json:"elo_max"`
-	MinPlayers     int32              `json:"min_players"`
-	MaxPlayers     int32              `json:"max_players"`
-	MatchType      string             `json:"match_type"`
-	VenueID        pgtype.UUID        `json:"venue_id"`
-	Status         string             `json:"status"`
-	MatchID        pgtype.UUID        `json:"match_id"`
-	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	CreatorName    pgtype.Text        `json:"creator_name"`
-	Lat            interface{}        `json:"lat"`
-	Lng            interface{}        `json:"lng"`
-	DistanceMeters interface{}        `json:"distance_meters"`
+	ID              pgtype.UUID        `json:"id"`
+	PlayerID        pgtype.UUID        `json:"player_id"`
+	ScheduledAt     pgtype.Timestamptz `json:"scheduled_at"`
+	EloMin          int32              `json:"elo_min"`
+	EloMax          int32              `json:"elo_max"`
+	MinPlayers      int32              `json:"min_players"`
+	MaxPlayers      int32              `json:"max_players"`
+	MatchType       string             `json:"match_type"`
+	VenueID         pgtype.UUID        `json:"venue_id"`
+	Status          string             `json:"status"`
+	MatchID         pgtype.UUID        `json:"match_id"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	CreatorName     pgtype.Text        `json:"creator_name"`
+	Lat             interface{}        `json:"lat"`
+	Lng             interface{}        `json:"lng"`
+	DistanceMeters  interface{}        `json:"distance_meters"`
+	RespondentCount int32              `json:"respondent_count"`
 }
 
 func (q *Queries) GetActiveFlaresByMatchType(ctx context.Context, arg GetActiveFlaresByMatchTypeParams) ([]GetActiveFlaresByMatchTypeRow, error) {
@@ -394,6 +399,7 @@ func (q *Queries) GetActiveFlaresByMatchType(ctx context.Context, arg GetActiveF
 			&i.Lat,
 			&i.Lng,
 			&i.DistanceMeters,
+			&i.RespondentCount,
 		); err != nil {
 			return nil, err
 		}

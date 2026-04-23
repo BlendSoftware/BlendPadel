@@ -226,3 +226,14 @@ func (q *Queries) GetRankingByRegionAndGender(ctx context.Context, arg GetRankin
 	}
 	return items, nil
 }
+
+const getRegionNameByID = `-- name: GetRegionNameByID :one
+SELECT name FROM regions WHERE id = $1
+`
+
+func (q *Queries) GetRegionNameByID(ctx context.Context, id pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getRegionNameByID, id)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}

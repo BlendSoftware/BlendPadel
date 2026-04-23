@@ -14,6 +14,9 @@ type Repository interface {
 	// UpdatePlayerELO updates the ELO for a player and increments their validated match count.
 	UpdatePlayerELO(ctx context.Context, playerID uuid.UUID, newELO int) error
 
+	// IncrementMatchCount increments the validated match count without changing ELO.
+	IncrementMatchCount(ctx context.Context, playerID uuid.UUID) error
+
 	// InsertELOHistory creates a new ELO history entry.
 	InsertELOHistory(ctx context.Context, record ELOHistoryRecord) error
 

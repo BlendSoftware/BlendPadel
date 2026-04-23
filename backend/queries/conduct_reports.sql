@@ -26,7 +26,7 @@ SELECT EXISTS(
 
 -- name: IsMatchCompleted :one
 SELECT EXISTS(
-    SELECT 1 FROM matches WHERE id = $1 AND status = 'completed'
+    SELECT 1 FROM matches WHERE id = $1 AND status = 'sealed'
 );
 
 -- name: CountReportsByRegion :one
@@ -35,3 +35,15 @@ FROM conduct_reports cr
 JOIN matches m ON m.id = cr.match_id
 WHERE m.region_id = $1
   AND (CASE WHEN $2::varchar = '' THEN TRUE ELSE cr.status = $2::varchar END);
+
+-- name: GetAllReports :many
+SELECT cr.*
+FROM conduct_reports cr
+WHERE (CASE WHEN $1::varchar = '' THEN TRUE ELSE cr.status = $1::varchar END)
+ORDER BY cr.created_at DESC
+LIMIT $2 OFFSET $3;
+
+-- name: CountAllReports :one
+SELECT COUNT(*)
+FROM conduct_reports cr
+WHERE (CASE WHEN $1::varchar = '' THEN TRUE ELSE cr.status = $1::varchar END);

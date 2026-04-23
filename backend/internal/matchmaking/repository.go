@@ -31,8 +31,9 @@ type FlareRow struct {
 // FlareListRow is the flare row returned from GetActiveFlares (includes computed columns).
 type FlareListRow struct {
 	FlareRow
-	CreatorName    string
-	DistanceMeters float64
+	CreatorName     string
+	DistanceMeters  float64
+	RespondentCount int32
 }
 
 // GetActiveFlaresParams holds the query parameters for GetActiveFlares.
@@ -59,6 +60,7 @@ type Repository interface {
 	CancelFlare(ctx context.Context, id, playerID uuid.UUID) (*FlareRow, error)
 	ExpireOldFlares(ctx context.Context) (int64, error)
 	AddRespondent(ctx context.Context, tx pgx.Tx, flareID, playerID uuid.UUID) error
+	AddRespondentDirect(ctx context.Context, flareID, playerID uuid.UUID) error
 	CountRespondents(ctx context.Context, tx pgx.Tx, flareID uuid.UUID) (int32, error)
 	GetRespondents(ctx context.Context, tx pgx.Tx, flareID uuid.UUID) ([]uuid.UUID, error)
 }

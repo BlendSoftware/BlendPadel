@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -197,6 +198,19 @@ func (r *postgresRepo) UpdateStatus(ctx context.Context, matchID uuid.UUID, stat
 		Status:   status,
 		SealedBy: pgtype.Text{String: sealedBy, Valid: sealedBy != ""},
 	})
+}
+
+func (r *postgresRepo) UpdateStatusCAS(ctx context.Context, matchID uuid.UUID, expectedStatus, newStatus, sealedBy string) error {
+	_, err := r.q.UpdateMatchStatusCAS(ctx, db.UpdateMatchStatusCASParams{
+		ID:       uuidToPg(matchID),
+		Status:   expectedStatus,
+		Status_2: newStatus,
+		SealedBy: pgtype.Text{String: sealedBy, Valid: sealedBy != ""},
+	})
+	if err != nil {
+		return fmt.Errorf("%w: match is no longer in status %s", ErrInvalidTransition, expectedStatus)
+	}
+	return nil
 }
 
 func (r *postgresRepo) UpdateResultSets(ctx context.Context, matchID uuid.UUID, sets []SetScore, winnerTeam string, totalA, totalB, gameDiff int) error {

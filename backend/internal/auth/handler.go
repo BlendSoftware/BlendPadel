@@ -125,6 +125,10 @@ func (h *Handler) writeError(w http.ResponseWriter, err error) {
 		response.Problem(w, http.StatusTooManyRequests, "Too Many Requests", err.Error())
 	case errors.Is(err, ErrInvalidCredentials):
 		response.Problem(w, http.StatusUnauthorized, "Unauthorized", "invalid credentials")
+	case errors.Is(err, ErrEmailRequired):
+		response.ValidationError(w, []response.FieldError{
+			{Field: "email", Message: "email is required"},
+		})
 	case errors.Is(err, ErrEmailTaken):
 		response.Problem(w, http.StatusConflict, "Conflict", "email is already registered")
 	case errors.Is(err, ErrWeakPassword):

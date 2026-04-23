@@ -33,6 +33,10 @@ type Repository interface {
 	// UpdateStatus updates the match status and sealed_by field.
 	UpdateStatus(ctx context.Context, matchID uuid.UUID, status, sealedBy string) error
 
+	// UpdateStatusCAS atomically updates the match status only if the current status matches expectedStatus.
+	// Returns ErrInvalidTransition if the status has already changed (compare-and-swap).
+	UpdateStatusCAS(ctx context.Context, matchID uuid.UUID, expectedStatus, newStatus, sealedBy string) error
+
 	// UpdateResultSets updates the sets/winner/games for an existing result (used on dispute override).
 	UpdateResultSets(ctx context.Context, matchID uuid.UUID, sets []SetScore, winnerTeam string, totalA, totalB, gameDiff int) error
 

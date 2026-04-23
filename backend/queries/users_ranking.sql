@@ -7,6 +7,9 @@ UPDATE users SET elo = $2, validated_match_count = validated_match_count + 1, up
 -- name: FreezePlayerELO :exec
 UPDATE users SET elo_frozen = true, updated_at = NOW() WHERE id = $1;
 
+-- name: IncrementMatchCount :exec
+UPDATE users SET validated_match_count = validated_match_count + 1, updated_at = NOW() WHERE id = $1;
+
 -- name: UnfreezePlayerELO :exec
 UPDATE users SET elo_frozen = false, updated_at = NOW() WHERE id = $1;
 

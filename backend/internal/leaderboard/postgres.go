@@ -94,6 +94,11 @@ func (r *postgresRepo) GetPlayerRank(ctx context.Context, playerID uuid.UUID) (i
 	return rank, nil
 }
 
+func (r *postgresRepo) GetRegionName(ctx context.Context, regionID uuid.UUID) (string, error) {
+	pgID := pgtype.UUID{Bytes: regionID, Valid: true}
+	return r.q.GetRegionNameByID(ctx, pgID)
+}
+
 func (r *postgresRepo) GetAllRegions(ctx context.Context) ([]RegionResponse, error) {
 	rows, err := r.q.GetAllRegions(ctx)
 	if err != nil {

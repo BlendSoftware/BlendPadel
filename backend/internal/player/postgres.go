@@ -190,6 +190,18 @@ func (r *postgresRepo) CountReportsByRegion(ctx context.Context, regionID uuid.U
 	})
 }
 
+func (r *postgresRepo) GetAllReports(ctx context.Context, statusFilter string, limit, offset int32) ([]db.ConductReport, error) {
+	return r.q.GetAllReports(ctx, db.GetAllReportsParams{
+		Column1: statusFilter,
+		Limit:   limit,
+		Offset:  offset,
+	})
+}
+
+func (r *postgresRepo) CountAllReports(ctx context.Context, statusFilter string) (int64, error) {
+	return r.q.CountAllReports(ctx, statusFilter)
+}
+
 func (r *postgresRepo) SearchByName(ctx context.Context, query string, limit int32) ([]PlayerSearchResult, error) {
 	rows, err := r.q.SearchPlayersByName(ctx, db.SearchPlayersByNameParams{
 		Query:       pgtype.Text{String: query, Valid: true},

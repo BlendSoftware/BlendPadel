@@ -56,6 +56,14 @@ func (a *PrefsAdapter) IsOnboardingComplete(ctx context.Context, playerID uuid.U
 	return profile.OnboardingCompleted, nil
 }
 
+func (a *PrefsAdapter) GetPlayerName(ctx context.Context, playerID uuid.UUID) (string, error) {
+	profile, err := a.repo.GetProfile(ctx, playerID)
+	if err != nil {
+		return "", err
+	}
+	return profile.Name, nil
+}
+
 func (a *PrefsAdapter) GetMatchmakingPreferences(ctx context.Context, userID uuid.UUID) (*matchmaking.MatchmakingPreferences, error) {
 	row, err := a.repo.GetOwnProfile(ctx, userID)
 	if err != nil {

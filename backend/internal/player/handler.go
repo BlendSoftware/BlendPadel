@@ -208,11 +208,21 @@ func (h *Handler) ReportConduct(w http.ResponseWriter, r *http.Request) {
 // Requires RequireRole("moderator", "superadmin") and RequireRegion middleware.
 func (h *Handler) GetAdminReports(w http.ResponseWriter, r *http.Request) {
 	regionID := auth.GetRegionID(r.Context())
+
+	// SuperAdmin may optionally filter by region_id query param.
 	if regionID == nil {
-		// SuperAdmin without a region gets an empty list (no region to filter by).
-		// For now, require region for the endpoint to function correctly.
-		response.Problem(w, http.StatusForbidden, "Forbidden", "no region assigned to this account")
-		return
+		if !auth.IsAdmin(r.Context()) {
+			response.Problem(w, http.StatusForbidden, "Forbidden", "no region assigned to this account")
+			return
+		}
+		if qp := r.URL.Query().Get("region_id"); qp != "" {
+			parsed, err := uuid.Parse(qp)
+			if err != nil {
+				response.Problem(w, http.StatusBadRequest, "Bad Request", "invalid region_id")
+				return
+			}
+			regionID = &parsed
+		}
 	}
 
 	statusFilter := r.URL.Query().Get("status")
@@ -242,7 +252,7 @@ func (h *Handler) GetAdminReports(w http.ResponseWriter, r *http.Request) {
 		offset = int32(v)
 	}
 
-	result, err := h.service.GetAdminReports(r.Context(), *regionID, statusFilter, limit, offset)
+	result, err := h.service.GetAdminReports(r.Context(), regionID, statusFilter, limit, offset)
 	if err != nil {
 		h.writeError(w, err)
 		return

@@ -51,6 +51,9 @@ FROM (
 ) r
 WHERE r.uid = $1;
 
+-- name: GetRegionNameByID :one
+SELECT name FROM regions WHERE id = $1;
+
 -- name: GetAllRegions :many
 SELECT id, name FROM regions ORDER BY name;
 

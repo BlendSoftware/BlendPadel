@@ -90,8 +90,9 @@ func (r *PostgresFlareRepo) GetActiveFlares(ctx context.Context, params GetActiv
 				CreatedAt:   row.CreatedAt.Time,
 				UpdatedAt:   row.UpdatedAt.Time,
 			},
-			CreatorName:    row.CreatorName.String,
-			DistanceMeters: toFloat64(row.DistanceMeters),
+			CreatorName:     row.CreatorName.String,
+			DistanceMeters:  toFloat64(row.DistanceMeters),
+			RespondentCount: row.RespondentCount,
 		}
 		if row.MatchID.Valid {
 			id := pgToUUID(row.MatchID)
@@ -101,7 +102,6 @@ func (r *PostgresFlareRepo) GetActiveFlares(ctx context.Context, params GetActiv
 			id := pgToUUID(row.VenueID)
 			f.VenueID = &id
 		}
-		// Extract lat/lng from computed columns.
 		f.Lat = toFloat64(row.Lat)
 		f.Lng = toFloat64(row.Lng)
 		result = append(result, f)
@@ -142,8 +142,9 @@ func (r *PostgresFlareRepo) GetActiveFlaresByMatchType(ctx context.Context, para
 				CreatedAt:   row.CreatedAt.Time,
 				UpdatedAt:   row.UpdatedAt.Time,
 			},
-			CreatorName:    row.CreatorName.String,
-			DistanceMeters: toFloat64(row.DistanceMeters),
+			CreatorName:     row.CreatorName.String,
+			DistanceMeters:  toFloat64(row.DistanceMeters),
+			RespondentCount: row.RespondentCount,
 		}
 		if row.MatchID.Valid {
 			id := pgToUUID(row.MatchID)
@@ -221,6 +222,13 @@ func (r *PostgresFlareRepo) ExpireOldFlares(ctx context.Context) (int64, error) 
 func (r *PostgresFlareRepo) AddRespondent(ctx context.Context, tx pgx.Tx, flareID, playerID uuid.UUID) error {
 	tq := db.New(tx)
 	return tq.AddFlareRespondent(ctx, db.AddFlareRespondentParams{
+		FlareID:  uuidToPg(flareID),
+		PlayerID: uuidToPg(playerID),
+	})
+}
+
+func (r *PostgresFlareRepo) AddRespondentDirect(ctx context.Context, flareID, playerID uuid.UUID) error {
+	return r.q.AddFlareRespondent(ctx, db.AddFlareRespondentParams{
 		FlareID:  uuidToPg(flareID),
 		PlayerID: uuidToPg(playerID),
 	})

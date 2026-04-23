@@ -59,6 +59,15 @@ func (q *Queries) GetPlayerTrustScore(ctx context.Context, id pgtype.UUID) (GetP
 	return i, err
 }
 
+const incrementMatchCount = `-- name: IncrementMatchCount :exec
+UPDATE users SET validated_match_count = validated_match_count + 1, updated_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) IncrementMatchCount(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, incrementMatchCount, id)
+	return err
+}
+
 const unfreezePlayerELO = `-- name: UnfreezePlayerELO :exec
 UPDATE users SET elo_frozen = false, updated_at = NOW() WHERE id = $1
 `

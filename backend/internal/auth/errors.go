@@ -5,6 +5,7 @@ import "errors"
 // Domain errors for the auth package.
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
+	ErrEmailRequired      = errors.New("email is required")
 	ErrEmailTaken         = errors.New("email already taken")
 	ErrTokenExpired       = errors.New("token expired or invalid")
 	ErrTokenReused        = errors.New("token reuse detected")

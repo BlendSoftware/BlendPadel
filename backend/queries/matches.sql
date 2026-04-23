@@ -22,6 +22,12 @@ UPDATE matches
 SET status = $2, sealed_by = $3, updated_at = NOW()
 WHERE id = $1;
 
+-- name: UpdateMatchStatusCAS :one
+UPDATE matches
+SET status = $3, sealed_by = $4, updated_at = NOW()
+WHERE id = $1 AND status = $2
+RETURNING id;
+
 -- name: GetMatchesAwaitingConfirmation :many
 SELECT m.id, m.status, m.scheduled_at, m.captain_a_id, m.captain_b_id, m.avg_elo, m.match_type, m.venue_id, m.sealed_by, m.created_at, m.updated_at
 FROM matches m

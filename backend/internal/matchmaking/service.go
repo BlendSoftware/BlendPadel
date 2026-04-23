@@ -22,6 +22,7 @@ type MatchCreator interface {
 // PlayerChecker validates player eligibility for matchmaking actions.
 type PlayerChecker interface {
 	IsOnboardingComplete(ctx context.Context, playerID uuid.UUID) (bool, error)
+	GetPlayerName(ctx context.Context, playerID uuid.UUID) (string, error)
 }
 
 // MatchmakingPreferences holds saved player preferences relevant to matchmaking.
@@ -72,8 +73,11 @@ func (s *Service) GetMyActiveFlare(ctx context.Context, playerID uuid.UUID) (*Fl
 		return nil, nil
 	}
 
-	// Extract lat/lng from the stored geography
-	resp := flareRowToResponse(row, "", 0)
+	var creatorName string
+	if s.playerChecker != nil {
+		creatorName, _ = s.playerChecker.GetPlayerName(ctx, playerID)
+	}
+	resp := flareRowToResponse(row, creatorName, 0)
 	return resp, nil
 }
 
@@ -94,7 +98,7 @@ func (s *Service) CreateFlare(ctx context.Context, playerID uuid.UUID, req Creat
 		req.ELOMax = 3000
 	}
 	if req.MinPlayers == 0 {
-		req.MinPlayers = 2
+		req.MinPlayers = 4
 	}
 	if req.MaxPlayers == 0 {
 		req.MaxPlayers = 4
@@ -110,11 +114,13 @@ func (s *Service) CreateFlare(ctx context.Context, playerID uuid.UUID, req Creat
 	if req.Lng < -180 || req.Lng > 180 {
 		return nil, fmt.Errorf("lng must be between -180 and 180")
 	}
-	if req.ScheduledAt.IsZero() || req.ScheduledAt.Before(time.Now()) {
+	if req.ScheduledAt.IsZero() {
+		req.ScheduledAt = time.Now().Add(24 * time.Hour)
+	} else if req.ScheduledAt.Before(time.Now()) {
 		return nil, fmt.Errorf("scheduled_at must be in the future")
 	}
-	if req.MinPlayers < 2 || req.MinPlayers > 4 {
-		return nil, fmt.Errorf("min_players must be between 2 and 4")
+	if req.MinPlayers != 4 {
+		return nil, fmt.Errorf("min_players must be 4 (padel is 2v2)")
 	}
 	if req.MaxPlayers < req.MinPlayers || req.MaxPlayers > 4 {
 		return nil, fmt.Errorf("max_players must be >= min_players and <= 4")
@@ -137,10 +143,21 @@ func (s *Service) CreateFlare(ctx context.Context, playerID uuid.UUID, req Creat
 		return nil, fmt.Errorf("create flare: %w", err)
 	}
 
+	if err := s.repo.AddRespondentDirect(ctx, row.ID, playerID); err != nil {
+		return nil, fmt.Errorf("auto-add creator as respondent: %w", err)
+	}
+
 	// Set lat/lng from request since the DB returns geography (not extracted).
 	row.Lat = req.Lat
 	row.Lng = req.Lng
-	return flareRowToResponse(row, "", 0), nil
+
+	var creatorName string
+	if s.playerChecker != nil {
+		creatorName, _ = s.playerChecker.GetPlayerName(ctx, playerID)
+	}
+	resp := flareRowToResponse(row, creatorName, 0)
+	resp.RespondentCount = 1
+	return resp, nil
 }
 
 // GetFlares returns a paginated list of active flares near the viewer.
@@ -199,7 +216,9 @@ func (s *Service) GetFlares(ctx context.Context, viewerID uuid.UUID, params GetF
 
 	items := make([]FlareResponse, 0, len(rows))
 	for _, row := range rows {
-		items = append(items, *flareRowToResponse(&row.FlareRow, row.CreatorName, row.DistanceMeters))
+		resp := flareRowToResponse(&row.FlareRow, row.CreatorName, row.DistanceMeters)
+		resp.RespondentCount = row.RespondentCount
+		items = append(items, *resp)
 	}
 
 	var nextCursor *string

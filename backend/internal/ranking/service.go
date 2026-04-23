@@ -104,6 +104,9 @@ func (s *Service) ApplyELO(ctx context.Context, input MatchELOInput) ([]ELOResul
 	for i, result := range results {
 		p := players[i]
 		if p.frozen {
+			if err := txRepo.IncrementMatchCount(ctx, result.PlayerID); err != nil {
+				return nil, fmt.Errorf("incrementing match count for frozen player %s: %w", result.PlayerID, err)
+			}
 			continue
 		}
 
@@ -174,6 +177,9 @@ func (s *Service) ApplyELOTx(ctx context.Context, tx pgx.Tx, input MatchELOInput
 	txRepo := NewPostgresRepo(db.New(tx))
 	for i, result := range results {
 		if players[i].frozen {
+			if err := txRepo.IncrementMatchCount(ctx, result.PlayerID); err != nil {
+				return nil, fmt.Errorf("incrementing match count for frozen player %s: %w", result.PlayerID, err)
+			}
 			continue
 		}
 		if err := txRepo.UpdatePlayerELO(ctx, result.PlayerID, result.NewELO); err != nil {

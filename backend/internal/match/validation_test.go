@@ -187,19 +187,19 @@ func TestValidateTeamComposition(t *testing.T) {
 
 	t.Run("invalid male match with female player", func(t *testing.T) {
 		err := match.ValidateTeamComposition(match.MatchTypeMale, []uuid.UUID{male1, female1}, []uuid.UUID{male3, male4}, genders)
-		assert.ErrorIs(t, err, match.ErrInvalidTeamComposition)
-		assert.Contains(t, err.Error(), "all players must be male")
+		assert.ErrorIs(t, err, match.ErrGenderMismatch)
+		assert.Contains(t, err.Error(), "cannot add female players to a male match")
 	})
 
 	t.Run("invalid male match with other gender", func(t *testing.T) {
 		err := match.ValidateTeamComposition(match.MatchTypeMale, []uuid.UUID{male1, other1}, []uuid.UUID{male3, male4}, genders)
-		assert.ErrorIs(t, err, match.ErrInvalidTeamComposition)
+		assert.ErrorIs(t, err, match.ErrGenderMismatch)
 	})
 
 	t.Run("invalid female match with male player", func(t *testing.T) {
 		err := match.ValidateTeamComposition(match.MatchTypeFemale, []uuid.UUID{female1, male1}, []uuid.UUID{female3, female4}, genders)
-		assert.ErrorIs(t, err, match.ErrInvalidTeamComposition)
-		assert.Contains(t, err.Error(), "all players must be female")
+		assert.ErrorIs(t, err, match.ErrGenderMismatch)
+		assert.Contains(t, err.Error(), "cannot add male players to a female match")
 	})
 
 	t.Run("invalid mixed match single gender team", func(t *testing.T) {
