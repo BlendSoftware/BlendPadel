@@ -44,9 +44,9 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
     set({ isLoading: true, error: null })
     try {
       const { filters } = get()
-      // BUG 1 FIX: Use Mendoza default when user location is not set
-      const lat = filters.lat ?? -33.35
-      const lng = filters.lng ?? -68.33
+      // Default a Ciudad de Mendoza (centro) cuando el usuario no compartió ubicación.
+      const lat = filters.lat ?? -33.037
+      const lng = filters.lng ?? -68.655
       const params: Record<string, string | number> = { radius_km: filters.radius_km, lat, lng }
       const res = await api.get<{ items: Flare[]; next_cursor?: string } | Flare[]>('/matchmaking/flares', { params })
       const data = Array.isArray(res.data) ? res.data : (res.data.items ?? [])
@@ -74,8 +74,8 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
       // If user hasn't shared location, default to Mendoza city center
       const payload: CreateFlareDTO = {
         ...data,
-        lat: data.lat ?? -33.35,
-        lng: data.lng ?? -68.33,
+        lat: data.lat ?? -33.037,
+        lng: data.lng ?? -68.655,
       }
       const res = await api.post<Flare>('/matchmaking/flares', payload)
       set({ myFlare: res.data, isLoading: false })

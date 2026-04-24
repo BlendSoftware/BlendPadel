@@ -32,8 +32,8 @@ type RadarStore = RadarState & RadarActions
 
 // Default ELO range — widened at store init; updated once user profile is known
 const DEFAULT_ELO_RANGE: ELORange = { min: 800, max: 1400 }
-// Default location: Mendoza, Argentina
-const MENDOZA: UserLocation = { lat: -33.35, lng: -68.33 }
+// Default location: Ciudad de Mendoza centro — alineado con seed de venues.
+const MENDOZA: UserLocation = { lat: -33.037, lng: -68.655 }
 
 export const useRadarStore = create<RadarStore>()(
   persist(

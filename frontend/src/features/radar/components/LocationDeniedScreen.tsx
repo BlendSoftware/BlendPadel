@@ -8,8 +8,8 @@ interface LocationDeniedScreenProps {
   onUseMendoza: () => void
 }
 
-// Mendoza default
-const MENDOZA: UserLocation = { lat: -33.35, lng: -68.33 }
+// Mendoza default — Ciudad de Mendoza centro.
+const MENDOZA: UserLocation = { lat: -33.037, lng: -68.655 }
 
 export function LocationDeniedScreen({ onLocationSet, onUseMendoza }: LocationDeniedScreenProps) {
   const [lat, setLat] = useState('')

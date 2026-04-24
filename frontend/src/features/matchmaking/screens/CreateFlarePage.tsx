@@ -69,8 +69,8 @@ export function CreateFlarePage() {
     try {
       await createFlare({
         scheduled_at: new Date(scheduledAt).toISOString(),
-        lat: lat ?? -33.35,
-        lng: lng ?? -68.33,
+        lat: lat ?? -33.037,
+        lng: lng ?? -68.655,
         match_type: matchType,
       })
       navigate('/matchmaking')

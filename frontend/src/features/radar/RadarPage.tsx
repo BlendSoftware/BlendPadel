@@ -31,7 +31,8 @@ import { CourtsMap } from './components/CourtsMap'
 import styles from './RadarPage.module.css'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const MENDOZA = { lat: -33.35, lng: -68.33 }
+// Ciudad de Mendoza centro — alineado con el seed de venues (Gran Mendoza + Zona Este).
+const MENDOZA = { lat: -33.037, lng: -68.655 }
 const RADIUS_OPTIONS: RadiusOption[] = [5, 10, 15, 25]
 const ELO_MIN = 400
 const ELO_MAX = 2000
@@ -557,7 +558,7 @@ export function RadarPage() {
     setCourtsLoading(true)
     api
       .get<{ venues: Array<{ id: string; name: string; lat: number; lng: number }> }>('/venues', {
-        params: { lat, lng, radius_km: Math.max(radiusKm, 15), limit: 100 },
+        params: { lat, lng, radius_km: Math.max(radiusKm, 30), limit: 100 },
         signal: ctl.signal,
       })
       .then((res) => {
