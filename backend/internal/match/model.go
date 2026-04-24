@@ -84,63 +84,82 @@ type ResolveDisputeRequest struct {
 	PenalizePlayerID *uuid.UUID            `json:"penalize_player_id,omitempty"`
 }
 
+// MatchPlayerDetail is the hydrated view of a match participant, enough to
+// render the match detail without a client-side lookup.
+type MatchPlayerDetail struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	LastName  string    `json:"last_name,omitempty"`
+	ELO       int       `json:"elo"`
+	Gender    string    `json:"gender,omitempty"`
+	AvatarURL string    `json:"avatar_url,omitempty"`
+	Status    string    `json:"status,omitempty"`
+	Team      string    `json:"team,omitempty"`
+}
+
 // MatchResponse is the API response for a match.
 type MatchResponse struct {
-	ID          uuid.UUID   `json:"id"`
-	Status      string      `json:"status"`
-	ScheduledAt time.Time   `json:"scheduled_at"`
-	CaptainAID  uuid.UUID   `json:"captain_a_id"`
-	CaptainBID  uuid.UUID   `json:"captain_b_id"`
-	AvgELO      int         `json:"avg_elo"`
-	MatchType   string      `json:"match_type"`
-	VenueID     *uuid.UUID  `json:"venue_id,omitempty"`
-	SealedBy    string      `json:"sealed_by,omitempty"`
-	TeamA       []uuid.UUID `json:"team_a"`
-	TeamB       []uuid.UUID `json:"team_b"`
-	WinnerTeam  string      `json:"winner_team,omitempty"`
-	TotalGamesA int         `json:"total_games_a,omitempty"`
-	TotalGamesB int         `json:"total_games_b,omitempty"`
-	GameDiff    int         `json:"game_diff,omitempty"`
-	Sets        []SetScore  `json:"sets,omitempty"`
-	CreatedAt   time.Time   `json:"created_at"`
+	ID            uuid.UUID           `json:"id"`
+	Status        string              `json:"status"`
+	ScheduledAt   time.Time           `json:"scheduled_at"`
+	CaptainAID    uuid.UUID           `json:"captain_a_id"`
+	CaptainBID    uuid.UUID           `json:"captain_b_id"`
+	AvgELO        int                 `json:"avg_elo"`
+	MatchType     string              `json:"match_type"`
+	VenueID       *uuid.UUID          `json:"venue_id,omitempty"`
+	SealedBy      string              `json:"sealed_by,omitempty"`
+	TeamA         []uuid.UUID         `json:"team_a"`
+	TeamB         []uuid.UUID         `json:"team_b"`
+	TeamAPlayers  []MatchPlayerDetail `json:"team_a_players"`
+	TeamBPlayers  []MatchPlayerDetail `json:"team_b_players"`
+	WinnerTeam    string              `json:"winner_team,omitempty"`
+	TotalGamesA   int                 `json:"total_games_a,omitempty"`
+	TotalGamesB   int                 `json:"total_games_b,omitempty"`
+	GameDiff      int                 `json:"game_diff,omitempty"`
+	Sets          []SetScore          `json:"sets,omitempty"`
+	CreatedAt     time.Time           `json:"created_at"`
 }
 
 // MatchHistoryItem is the match list item for match history.
 type MatchHistoryItem struct {
-	ID          uuid.UUID  `json:"id"`
-	Status      string     `json:"status"`
-	ScheduledAt time.Time  `json:"scheduled_at"`
-	CaptainAID  uuid.UUID  `json:"captain_a_id"`
-	CaptainBID  uuid.UUID  `json:"captain_b_id"`
-	AvgELO      int        `json:"avg_elo"`
-	MatchType   string     `json:"match_type"`
-	VenueID     *uuid.UUID `json:"venue_id,omitempty"`
-	SealedBy    string     `json:"sealed_by,omitempty"`
-	TeamA       []uuid.UUID `json:"team_a"`
-	TeamB       []uuid.UUID `json:"team_b"`
-	WinnerTeam  string     `json:"winner_team,omitempty"`
-	TotalGamesA int        `json:"total_games_a"`
-	TotalGamesB int        `json:"total_games_b"`
-	GameDiff    int        `json:"game_diff"`
-	CreatedAt   time.Time  `json:"created_at"`
+	ID            uuid.UUID           `json:"id"`
+	Status        string              `json:"status"`
+	ScheduledAt   time.Time           `json:"scheduled_at"`
+	CaptainAID    uuid.UUID           `json:"captain_a_id"`
+	CaptainBID    uuid.UUID           `json:"captain_b_id"`
+	AvgELO        int                 `json:"avg_elo"`
+	MatchType     string              `json:"match_type"`
+	VenueID       *uuid.UUID          `json:"venue_id,omitempty"`
+	SealedBy      string              `json:"sealed_by,omitempty"`
+	TeamA         []uuid.UUID         `json:"team_a"`
+	TeamB         []uuid.UUID         `json:"team_b"`
+	TeamAPlayers  []MatchPlayerDetail `json:"team_a_players"`
+	TeamBPlayers  []MatchPlayerDetail `json:"team_b_players"`
+	WinnerTeam    string              `json:"winner_team,omitempty"`
+	TotalGamesA   int                 `json:"total_games_a"`
+	TotalGamesB   int                 `json:"total_games_b"`
+	GameDiff      int                 `json:"game_diff"`
+	CreatedAt     time.Time           `json:"created_at"`
 }
 
 // MatchFull is the internal domain model with all related data loaded.
 type MatchFull struct {
-	ID          uuid.UUID
-	Status      string
-	ScheduledAt time.Time
-	CaptainAID  uuid.UUID
-	CaptainBID  uuid.UUID
-	AvgELO      int
-	MatchType   string
-	VenueID     *uuid.UUID
-	SealedBy    string
-	TeamA       []uuid.UUID
-	TeamB       []uuid.UUID
-	Result      *MatchResultData
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID            uuid.UUID
+	Status        string
+	ScheduledAt   time.Time
+	CaptainAID    uuid.UUID
+	CaptainBID    uuid.UUID
+	AvgELO        int
+	MatchType     string
+	VenueID       *uuid.UUID
+	SealedBy      string
+	TeamA         []uuid.UUID
+	TeamB         []uuid.UUID
+	TeamAPlayers  []MatchPlayerDetail
+	TeamBPlayers  []MatchPlayerDetail
+	Result        *MatchResultData
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // MatchResultData is the internal representation of a match result.

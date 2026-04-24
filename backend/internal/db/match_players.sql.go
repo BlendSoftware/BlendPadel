@@ -68,6 +68,66 @@ func (q *Queries) GetMatchPlayersByTeam(ctx context.Context, arg GetMatchPlayers
 	return items, nil
 }
 
+const getMatchPlayersHydrated = `-- name: GetMatchPlayersHydrated :many
+SELECT
+    mp.match_id,
+    mp.player_id,
+    mp.team,
+    u.name,
+    COALESCE(u.last_name, '')  AS last_name,
+    u.elo,
+    u.gender,
+    COALESCE(u.avatar_url, '') AS avatar_url,
+    u.status
+FROM match_players mp
+JOIN users u ON u.id = mp.player_id
+WHERE mp.match_id = $1
+`
+
+type GetMatchPlayersHydratedRow struct {
+	MatchID   pgtype.UUID `json:"match_id"`
+	PlayerID  pgtype.UUID `json:"player_id"`
+	Team      string      `json:"team"`
+	Name      pgtype.Text `json:"name"`
+	LastName  string      `json:"last_name"`
+	Elo       int32       `json:"elo"`
+	Gender    string      `json:"gender"`
+	AvatarUrl string      `json:"avatar_url"`
+	Status    string      `json:"status"`
+}
+
+// Returns match players joined with user profile so the API can serve name/elo/avatar
+// without requiring a client-side cache lookup for calibration-stage players.
+func (q *Queries) GetMatchPlayersHydrated(ctx context.Context, matchID pgtype.UUID) ([]GetMatchPlayersHydratedRow, error) {
+	rows, err := q.db.Query(ctx, getMatchPlayersHydrated, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetMatchPlayersHydratedRow{}
+	for rows.Next() {
+		var i GetMatchPlayersHydratedRow
+		if err := rows.Scan(
+			&i.MatchID,
+			&i.PlayerID,
+			&i.Team,
+			&i.Name,
+			&i.LastName,
+			&i.Elo,
+			&i.Gender,
+			&i.AvatarUrl,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertMatchPlayer = `-- name: InsertMatchPlayer :exec
 INSERT INTO match_players (match_id, player_id, team)
 VALUES ($1, $2, $3)

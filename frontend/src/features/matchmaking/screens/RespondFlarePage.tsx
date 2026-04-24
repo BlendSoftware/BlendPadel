@@ -32,6 +32,7 @@ export function RespondFlarePage() {
 
   const [flare, setFlare] = useState<Flare | null>(null)
   const [confirmed, setConfirmed] = useState(false)
+  const [matchedId] = useState<string | null>(null)
 
   useEffect(() => {
     if (flares.length === 0) {
@@ -48,7 +49,17 @@ export function RespondFlarePage() {
     if (!flare) return
     clearError()
     try {
-      await respondToFlare(flare.id)
+      const result = await respondToFlare(flare.id)
+      if (result.matchId) {
+        window.dispatchEvent(new CustomEvent('toast:add', {
+          detail: { type: 'success', message: '¡Partido armado! Revisá el detalle.' },
+        }))
+        navigate(`/matches/${result.matchId}`, { replace: true })
+        return
+      }
+      window.dispatchEvent(new CustomEvent('toast:add', {
+        detail: { type: 'success', message: 'Aceptaste el desafío. Esperando más jugadores.' },
+      }))
       setConfirmed(true)
     } catch {
       // error set in store
@@ -93,11 +104,11 @@ export function RespondFlarePage() {
           <div>
             <h2 className="text-xl font-bold text-text-primary">¡Desafío aceptado!</h2>
             <p className="text-text-secondary mt-2">
-              Respondiste al desafío de {flare.creator_name ?? flare.player?.name ?? 'Jugador'}. Te avisaremos cuando el partido esté confirmado.
+              Respondiste al desafío de {flare.creator_name ?? flare.player?.name ?? 'Jugador'}. Te avisaremos cuando haya jugadores suficientes.
             </p>
           </div>
-          <Button fullWidth onClick={() => navigate('/matchmaking')}>
-            Volver al inicio
+          <Button fullWidth onClick={() => navigate(matchedId ? `/matches/${matchedId}` : '/matchmaking')}>
+            {matchedId ? 'Ir al partido' : 'Volver al inicio'}
           </Button>
         </div>
       </div>

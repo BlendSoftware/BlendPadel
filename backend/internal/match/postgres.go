@@ -115,17 +115,8 @@ func (r *postgresRepo) GetMatchWithPlayers(ctx context.Context, matchID uuid.UUI
 		UpdatedAt:   row.UpdatedAt.Time,
 	}
 
-	// Load players.
-	players, err := r.q.GetMatchPlayers(ctx, uuidToPg(matchID))
-	if err != nil {
+	if err := r.loadHydratedPlayers(ctx, m); err != nil {
 		return nil, err
-	}
-	for _, p := range players {
-		if p.Team == "A" {
-			m.TeamA = append(m.TeamA, pgToUUID(p.PlayerID))
-		} else {
-			m.TeamB = append(m.TeamB, pgToUUID(p.PlayerID))
-		}
 	}
 
 	// Load result (optional).
@@ -250,17 +241,8 @@ func (r *postgresRepo) GetPendingSealMatches(ctx context.Context) ([]MatchFull, 
 			UpdatedAt:   row.UpdatedAt.Time,
 		}
 
-		// Load players.
-		players, pErr := r.q.GetMatchPlayers(ctx, uuidToPg(m.ID))
-		if pErr != nil {
-			return nil, pErr
-		}
-		for _, p := range players {
-			if p.Team == "A" {
-				m.TeamA = append(m.TeamA, pgToUUID(p.PlayerID))
-			} else {
-				m.TeamB = append(m.TeamB, pgToUUID(p.PlayerID))
-			}
+		if err := r.loadHydratedPlayers(ctx, &m); err != nil {
+			return nil, err
 		}
 
 		// Load result.
@@ -316,17 +298,8 @@ func (r *postgresRepo) GetMatchHistory(ctx context.Context, playerID uuid.UUID, 
 			CreatedAt:   row.CreatedAt.Time,
 		}
 
-		// Load players.
-		players, pErr := r.q.GetMatchPlayers(ctx, uuidToPg(item.ID))
-		if pErr != nil {
-			return nil, pErr
-		}
-		for _, p := range players {
-			if p.Team == "A" {
-				item.TeamA = append(item.TeamA, pgToUUID(p.PlayerID))
-			} else {
-				item.TeamB = append(item.TeamB, pgToUUID(p.PlayerID))
-			}
+		if err := r.loadHydratedPlayersHistory(ctx, &item); err != nil {
+			return nil, err
 		}
 
 		// Load result.
@@ -365,17 +338,8 @@ func (r *postgresRepo) GetActiveMatches(ctx context.Context, playerID uuid.UUID)
 			CreatedAt:   row.CreatedAt.Time,
 		}
 
-		// Load players.
-		players, pErr := r.q.GetMatchPlayers(ctx, uuidToPg(item.ID))
-		if pErr != nil {
-			return nil, pErr
-		}
-		for _, p := range players {
-			if p.Team == "A" {
-				item.TeamA = append(item.TeamA, pgToUUID(p.PlayerID))
-			} else {
-				item.TeamB = append(item.TeamB, pgToUUID(p.PlayerID))
-			}
+		if err := r.loadHydratedPlayersHistory(ctx, &item); err != nil {
+			return nil, err
 		}
 
 		// Load result if available.
@@ -585,6 +549,73 @@ func (r *postgresRepo) GetPlayerStatuses(ctx context.Context, playerIDs []uuid.U
 }
 
 // --- helpers ---
+
+// loadHydratedPlayers populates TeamA/TeamB (UUIDs) and TeamAPlayers/TeamBPlayers
+// (full user detail) using the JOIN-backed GetMatchPlayersHydrated query.
+func (r *postgresRepo) loadHydratedPlayers(ctx context.Context, m *MatchFull) error {
+	rows, err := r.q.GetMatchPlayersHydrated(ctx, uuidToPg(m.ID))
+	if err != nil {
+		return err
+	}
+	m.TeamA = nil
+	m.TeamB = nil
+	m.TeamAPlayers = nil
+	m.TeamBPlayers = nil
+	for _, row := range rows {
+		pid := pgToUUID(row.PlayerID)
+		detail := MatchPlayerDetail{
+			ID:        pid,
+			Name:      row.Name.String,
+			LastName:  row.LastName,
+			ELO:       int(row.Elo),
+			Gender:    row.Gender,
+			AvatarURL: row.AvatarUrl,
+			Status:    row.Status,
+			Team:      row.Team,
+		}
+		if row.Team == "A" {
+			m.TeamA = append(m.TeamA, pid)
+			m.TeamAPlayers = append(m.TeamAPlayers, detail)
+		} else {
+			m.TeamB = append(m.TeamB, pid)
+			m.TeamBPlayers = append(m.TeamBPlayers, detail)
+		}
+	}
+	return nil
+}
+
+// loadHydratedPlayersHistory is the MatchHistoryItem variant of loadHydratedPlayers.
+func (r *postgresRepo) loadHydratedPlayersHistory(ctx context.Context, item *MatchHistoryItem) error {
+	rows, err := r.q.GetMatchPlayersHydrated(ctx, uuidToPg(item.ID))
+	if err != nil {
+		return err
+	}
+	item.TeamA = nil
+	item.TeamB = nil
+	item.TeamAPlayers = nil
+	item.TeamBPlayers = nil
+	for _, row := range rows {
+		pid := pgToUUID(row.PlayerID)
+		detail := MatchPlayerDetail{
+			ID:        pid,
+			Name:      row.Name.String,
+			LastName:  row.LastName,
+			ELO:       int(row.Elo),
+			Gender:    row.Gender,
+			AvatarURL: row.AvatarUrl,
+			Status:    row.Status,
+			Team:      row.Team,
+		}
+		if row.Team == "A" {
+			item.TeamA = append(item.TeamA, pid)
+			item.TeamAPlayers = append(item.TeamAPlayers, detail)
+		} else {
+			item.TeamB = append(item.TeamB, pid)
+			item.TeamBPlayers = append(item.TeamBPlayers, detail)
+		}
+	}
+	return nil
+}
 
 func uuidToPg(id uuid.UUID) pgtype.UUID {
 	return pgtype.UUID{Bytes: id, Valid: true}

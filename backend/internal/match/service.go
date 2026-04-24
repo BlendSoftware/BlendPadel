@@ -690,20 +690,30 @@ func matchToResponse(m *MatchFull) *MatchResponse {
 	if teamB == nil {
 		teamB = []uuid.UUID{}
 	}
+	teamAPlayers := m.TeamAPlayers
+	if teamAPlayers == nil {
+		teamAPlayers = []MatchPlayerDetail{}
+	}
+	teamBPlayers := m.TeamBPlayers
+	if teamBPlayers == nil {
+		teamBPlayers = []MatchPlayerDetail{}
+	}
 	resp := &MatchResponse{
-		ID:          m.ID,
-		Status:      m.Status,
-		ScheduledAt: m.ScheduledAt,
-		CaptainAID:  m.CaptainAID,
-		CaptainBID:  m.CaptainBID,
-		AvgELO:      m.AvgELO,
-		MatchType:   m.MatchType,
-		VenueID:     m.VenueID,
-		SealedBy:    m.SealedBy,
-		TeamA:       teamA,
-		TeamB:       teamB,
-		Sets:        []SetScore{},
-		CreatedAt:   m.CreatedAt,
+		ID:           m.ID,
+		Status:       m.Status,
+		ScheduledAt:  m.ScheduledAt,
+		CaptainAID:   m.CaptainAID,
+		CaptainBID:   m.CaptainBID,
+		AvgELO:       m.AvgELO,
+		MatchType:    m.MatchType,
+		VenueID:      m.VenueID,
+		SealedBy:     m.SealedBy,
+		TeamA:        teamA,
+		TeamB:        teamB,
+		TeamAPlayers: teamAPlayers,
+		TeamBPlayers: teamBPlayers,
+		Sets:         []SetScore{},
+		CreatedAt:    m.CreatedAt,
 	}
 	if m.Result != nil {
 		resp.WinnerTeam = m.Result.WinnerTeam

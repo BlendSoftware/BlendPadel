@@ -21,7 +21,7 @@ interface MatchmakingActions {
   setFilters: (filters: Partial<MatchmakingFilters>) => void
   fetchFlares: () => Promise<void>
   createFlare: (data: CreateFlareDTO) => Promise<void>
-  respondToFlare: (flareId: string) => Promise<void>
+  respondToFlare: (flareId: string) => Promise<{ matchId: string | null }>
   cancelFlare: (flareId: string) => Promise<void>
   fetchMyFlare: () => Promise<void>
   clearError: () => void
@@ -99,10 +99,12 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
   respondToFlare: async (flareId: string) => {
     set({ isLoading: true, error: null })
     try {
-      await api.post(`/matchmaking/flares/${flareId}/respond`)
-      // Refresh flares after responding
+      const res = await api.post<Flare>(`/matchmaking/flares/${flareId}/respond`)
+      const matchId = res.data?.match_id ?? null
+      // Refresh flares after responding (matched flares drop off the listing automatically).
       await get().fetchFlares()
       set({ isLoading: false })
+      return { matchId }
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : 'Error al aceptar desafío'
       set({ error: message, isLoading: false })

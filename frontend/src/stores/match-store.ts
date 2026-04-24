@@ -19,15 +19,32 @@ import type {
 // This function normalises both formats into MatchPlayer[].
 type RawTeam = string[] | MatchPlayer[]
 
-function hydrateTeam(team: RawTeam): MatchPlayer[] {
+interface RawHydratedPlayer {
+  id: string
+  name?: string
+  elo?: number
+  avatar_url?: string
+  status?: string
+  gender?: string
+}
+
+function hydrateTeam(team: RawTeam, hydrated?: RawHydratedPlayer[]): MatchPlayer[] {
+  if (Array.isArray(hydrated) && hydrated.length > 0) {
+    return hydrated.map((p) => ({
+      id: p.id,
+      name: p.name && p.name.trim().length > 0 ? p.name : 'Jugador',
+      elo: typeof p.elo === 'number' ? p.elo : 0,
+      avatar_url: p.avatar_url || undefined,
+      elo_delta: null,
+    }))
+  }
+
   if (!Array.isArray(team) || team.length === 0) return []
 
-  // Already hydrated (objects with an id field that is not just a string primitive)
   if (typeof team[0] === 'object' && team[0] !== null) {
     return team as MatchPlayer[]
   }
 
-  // Raw UUID strings — resolve from player cache
   const cache = usePlayerCache.getState()
   return (team as string[]).map((id) => ({
     id,
@@ -38,10 +55,7 @@ function hydrateTeam(team: RawTeam): MatchPlayer[] {
   }))
 }
 
-// Normalise a raw backend match into the typed MatchDetail shape
 function hydrateMatch(raw: Record<string, unknown>): MatchDetail {
-  // Backend returns sets at top-level; build a MatchResult from it so UI
-  // components that read match.result.sets continue to work.
   const rawSets = raw.sets as SetScore[] | undefined
   const existingResult = raw.result as MatchDetail['result'] | undefined
   const result: MatchDetail['result'] = existingResult ?? (
@@ -50,10 +64,13 @@ function hydrateMatch(raw: Record<string, unknown>): MatchDetail {
       : null
   )
 
+  const teamAHydrated = raw.team_a_players as RawHydratedPlayer[] | undefined
+  const teamBHydrated = raw.team_b_players as RawHydratedPlayer[] | undefined
+
   return {
     ...(raw as unknown as MatchDetail),
-    team_a: hydrateTeam(raw.team_a as RawTeam),
-    team_b: hydrateTeam(raw.team_b as RawTeam),
+    team_a: hydrateTeam(raw.team_a as RawTeam, teamAHydrated),
+    team_b: hydrateTeam(raw.team_b as RawTeam, teamBHydrated),
     result,
   }
 }
