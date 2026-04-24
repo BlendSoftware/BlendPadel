@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Search, X } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
-import { useMatchStore } from '@/stores/match-store'
+import api from '@/services/api'
 import type { MatchType, PlayerSearchResult } from '../types'
 
 interface PlayerSearchPickerProps {
@@ -24,12 +24,10 @@ export function PlayerSearchPicker({
   matchType,
 }: PlayerSearchPickerProps) {
   const [query, setQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<PlayerSearchResult[]>([])
+  const [isSearching, setIsSearching] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const searchResults = useMatchStore((s) => s.searchResults)
-  const isSearching = useMatchStore((s) => s.isSearching)
-  const searchPlayers = useMatchStore((s) => s.searchPlayers)
-  const clearSearch = useMatchStore((s) => s.clearSearch)
+  const abortRef = useRef<AbortController | null>(null)
 
   const selectedIds = new Set(selectedPlayers.map((p) => p.id))
   const allExcluded = new Set([...excludeIds, ...selectedIds])
@@ -45,19 +43,37 @@ export function PlayerSearchPicker({
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      clearSearch()
+      abortRef.current?.abort()
     }
-  }, [clearSearch])
+  }, [])
 
   const handleQueryChange = (value: string) => {
     setQuery(value)
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (value.trim().length < 2) {
-      clearSearch()
+      setSearchResults([])
       return
     }
-    debounceRef.current = setTimeout(() => {
-      searchPlayers(value, { excludeIds: Array.from(allExcluded), matchType })
+    debounceRef.current = setTimeout(async () => {
+      abortRef.current?.abort()
+      const ctl = new AbortController()
+      abortRef.current = ctl
+      setIsSearching(true)
+      try {
+        const res = await api.get<PlayerSearchResult[]>('/players/search', {
+          params: {
+            q: value,
+            exclude_ids: Array.from(allExcluded).join(',') || undefined,
+            match_type: matchType,
+          },
+          signal: ctl.signal,
+        })
+        setSearchResults(res.data ?? [])
+      } catch {
+        // swallow aborts + transient errors; toast interceptor handles 5xx
+      } finally {
+        if (abortRef.current === ctl) setIsSearching(false)
+      }
     }, 350)
   }
 
@@ -65,7 +81,7 @@ export function PlayerSearchPicker({
     if (!canAdd) return
     onAdd(player)
     setQuery('')
-    clearSearch()
+    setSearchResults([])
   }
 
   return (

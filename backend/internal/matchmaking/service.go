@@ -315,7 +315,11 @@ func (s *Service) RespondToFlare(ctx context.Context, flareID, responderID uuid.
 		return nil, fmt.Errorf("commit tx: %w", err)
 	}
 
-	resp := flareRowToResponse(flare, "", 0)
+	var creatorName string
+	if s.playerChecker != nil {
+		creatorName, _ = s.playerChecker.GetPlayerName(ctx, flare.PlayerID)
+	}
+	resp := flareRowToResponse(flare, creatorName, 0)
 	resp.RespondentCount = count
 	return resp, nil
 }

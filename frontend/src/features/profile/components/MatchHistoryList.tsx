@@ -16,8 +16,11 @@ interface MatchCardProps {
 
 function MatchCard({ match }: MatchCardProps) {
   const isSealed = match.status === 'sealed'
-  // winner_team is only set on sealed matches
   const winnerTeam = match.winner_team
+  const sets = match.sets ?? []
+  const totalA = match.total_games_a ?? 0
+  const totalB = match.total_games_b ?? 0
+  const gameDiff = match.game_diff ?? 0
 
   return (
     <div className="bg-bg-card border border-border rounded-xl p-3">
@@ -38,35 +41,35 @@ function MatchCard({ match }: MatchCardProps) {
           </div>
 
           <p className="text-text-primary text-sm font-medium">
-            Equipo A ({match.total_games_a} juegos)
+            Equipo A ({totalA} juegos)
           </p>
           <p className="text-text-secondary text-xs mb-1">vs</p>
           <p className="text-text-secondary text-sm">
-            Equipo B ({match.total_games_b} juegos)
+            Equipo B ({totalB} juegos)
           </p>
         </div>
 
         {/* Sets */}
         <div className="shrink-0 text-right">
-          <p className="text-text-primary font-bold text-sm mb-1">{match.match_type}</p>
-          {match.sets.map((s, i) => (
+          <p className="text-text-primary font-bold text-sm mb-1">{match.match_type ?? '—'}</p>
+          {sets.map((s, i) => (
             <p key={i} className="text-xs text-text-secondary tabular-nums">
               {s.team_a_games}–{s.team_b_games}
             </p>
           ))}
-          {match.game_diff !== 0 && (
+          {gameDiff !== 0 && (
             <div
               className={[
                 'flex items-center gap-0.5 justify-end text-xs font-semibold mt-0.5',
-                match.game_diff > 0 ? 'text-trust-high' : 'text-trust-low',
+                gameDiff > 0 ? 'text-trust-high' : 'text-trust-low',
               ].join(' ')}
             >
-              {match.game_diff > 0 ? (
+              {gameDiff > 0 ? (
                 <TrendingUp size={12} aria-hidden="true" />
               ) : (
                 <TrendingDown size={12} aria-hidden="true" />
               )}
-              <span>{match.game_diff > 0 ? `+${match.game_diff}` : match.game_diff}</span>
+              <span>{gameDiff > 0 ? `+${gameDiff}` : gameDiff}</span>
             </div>
           )}
         </div>
@@ -76,7 +79,8 @@ function MatchCard({ match }: MatchCardProps) {
 }
 
 export function MatchHistoryList({ matches, hasMore, loading, onLoadMore }: MatchHistoryListProps) {
-  if (matches.length === 0 && !loading) {
+  const safeMatches = matches ?? []
+  if (safeMatches.length === 0 && !loading) {
     return (
       <div className="text-center py-8 text-text-secondary text-sm">
         Sin partidos jugados aún
@@ -86,7 +90,7 @@ export function MatchHistoryList({ matches, hasMore, loading, onLoadMore }: Matc
 
   return (
     <div className="space-y-2">
-      {matches.map((match) => (
+      {safeMatches.map((match) => (
         <MatchCard key={match.id} match={match} />
       ))}
 

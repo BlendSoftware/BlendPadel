@@ -682,6 +682,14 @@ func (s *Service) checkCalibrationEgress(ctx context.Context, playerID uuid.UUID
 // --- helpers ---
 
 func matchToResponse(m *MatchFull) *MatchResponse {
+	teamA := m.TeamA
+	if teamA == nil {
+		teamA = []uuid.UUID{}
+	}
+	teamB := m.TeamB
+	if teamB == nil {
+		teamB = []uuid.UUID{}
+	}
 	resp := &MatchResponse{
 		ID:          m.ID,
 		Status:      m.Status,
@@ -692,8 +700,9 @@ func matchToResponse(m *MatchFull) *MatchResponse {
 		MatchType:   m.MatchType,
 		VenueID:     m.VenueID,
 		SealedBy:    m.SealedBy,
-		TeamA:       m.TeamA,
-		TeamB:       m.TeamB,
+		TeamA:       teamA,
+		TeamB:       teamB,
+		Sets:        []SetScore{},
 		CreatedAt:   m.CreatedAt,
 	}
 	if m.Result != nil {
@@ -701,7 +710,9 @@ func matchToResponse(m *MatchFull) *MatchResponse {
 		resp.TotalGamesA = m.Result.TotalGamesA
 		resp.TotalGamesB = m.Result.TotalGamesB
 		resp.GameDiff = m.Result.GameDiff
-		resp.Sets = m.Result.Sets
+		if m.Result.Sets != nil {
+			resp.Sets = m.Result.Sets
+		}
 	}
 	return resp
 }

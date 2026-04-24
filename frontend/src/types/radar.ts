@@ -27,7 +27,7 @@ export interface UserLocation {
 }
 
 export interface PadelCourt {
-  id: number
+  id: string
   name: string
   lat: number
   lng: number

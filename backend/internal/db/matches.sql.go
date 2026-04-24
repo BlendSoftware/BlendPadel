@@ -267,10 +267,10 @@ func (q *Queries) GetMatchesAwaitingConfirmation(ctx context.Context) ([]GetMatc
 }
 
 const getMatchesByPlayer = `-- name: GetMatchesByPlayer :many
-SELECT m.id, m.status, m.scheduled_at, m.captain_a_id, m.captain_b_id, m.avg_elo, m.match_type, m.venue_id, m.sealed_by, m.created_at, m.updated_at
+SELECT DISTINCT m.id, m.status, m.scheduled_at, m.captain_a_id, m.captain_b_id, m.avg_elo, m.match_type, m.venue_id, m.sealed_by, m.created_at, m.updated_at
 FROM matches m
 JOIN match_players mp ON mp.match_id = m.id
-WHERE mp.player_id = $1 AND m.status = 'sealed'
+WHERE mp.player_id = $1 AND m.status <> 'cancelled'
 ORDER BY m.created_at DESC
 LIMIT $2 OFFSET $3
 `
@@ -295,6 +295,8 @@ type GetMatchesByPlayerRow struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+// Returns ALL matches where the player participates in any team (via match_players junction)
+// excluding only cancelled matches. Covers captain A, captain B, and partners of either.
 func (q *Queries) GetMatchesByPlayer(ctx context.Context, arg GetMatchesByPlayerParams) ([]GetMatchesByPlayerRow, error) {
 	rows, err := q.db.Query(ctx, getMatchesByPlayer, arg.PlayerID, arg.Limit, arg.Offset)
 	if err != nil {

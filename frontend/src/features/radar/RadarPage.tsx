@@ -23,6 +23,7 @@ import { useNavigate } from 'react-router-dom'
 import 'leaflet/dist/leaflet.css'
 
 import { Spinner } from '@/components/ui/Spinner'
+import api from '@/services/api'
 import { useRadarStore } from '@/stores/radar-store'
 import type { PadelCourt, RadarMatch, ELORange, RadiusOption } from '@/types/radar'
 import { CourtsMap } from './components/CourtsMap'
@@ -546,52 +547,33 @@ export function RadarPage() {
     fetchMatches()
   }, [userLocation?.lat, userLocation?.lng, eloRange.min, eloRange.max, radiusKm]) // eslint-disable-line
 
-  // Fetch courts from Overpass with localStorage cache
+  // Fetch courts (venues) from backend — verified DB-backed venues replace Overpass OSM.
   useEffect(() => {
     const lat = userLocation?.lat
     const lng = userLocation?.lng
     if (lat == null || lng == null) return
 
-    const cacheKey = `blend-v3-courts-${lat.toFixed(1)},${lng.toFixed(1)}`
-    try {
-      const cached = localStorage.getItem(cacheKey)
-      if (cached) {
-        const { data, ts } = JSON.parse(cached)
-        if (Date.now() - ts < 30 * 60 * 1000) { setCourts(data); return }
-      }
-    } catch {}
-
+    const ctl = new AbortController()
     setCourtsLoading(true)
-    const radius = 30000
-    const query  = `[out:json][timeout:25];(node["sport"~"padel|paddle"](around:${radius},${lat},${lng});way["sport"~"padel|paddle"](around:${radius},${lat},${lng});node["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng});way["leisure"="pitch"]["sport"~"padel|paddle"](around:${radius},${lat},${lng});node["name"~"padel|paddle",i](around:${radius},${lat},${lng});way["name"~"padel|paddle",i](around:${radius},${lat},${lng}););out center;`
-
-    fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: `data=${encodeURIComponent(query)}`,
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        const seen    = new Set<number>()
-        const results: PadelCourt[] = (data.elements ?? [])
-          .filter((el: any) => {
-            if ((el.lat ?? el.center?.lat) == null) return false
-            if (seen.has(el.id)) return false
-            seen.add(el.id)
-            return true
-          })
-          .map((el: any) => ({
-            id: el.id,
-            name: el.tags?.name || 'Cancha de padel',
-            lat: el.lat ?? el.center?.lat,
-            lng: el.lon ?? el.center?.lon,
-          }))
-        setCourts(results)
-        setCourtsLoading(false)
-        try { localStorage.setItem(cacheKey, JSON.stringify({ data: results, ts: Date.now() })) } catch {}
+    api
+      .get<{ venues: Array<{ id: string; name: string; lat: number; lng: number }> }>('/venues', {
+        params: { lat, lng, radius_km: Math.max(radiusKm, 15), limit: 100 },
+        signal: ctl.signal,
       })
-      .catch(() => setCourtsLoading(false))
-  }, [userLocation?.lat, userLocation?.lng]) // eslint-disable-line
+      .then((res) => {
+        const results: PadelCourt[] = (res.data?.venues ?? []).map((v) => ({
+          id: v.id,
+          name: v.name,
+          lat: v.lat,
+          lng: v.lng,
+        }))
+        setCourts(results)
+      })
+      .catch(() => setCourts([]))
+      .finally(() => setCourtsLoading(false))
+
+    return () => ctl.abort()
+  }, [userLocation?.lat, userLocation?.lng, radiusKm])
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true)
