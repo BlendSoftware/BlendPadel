@@ -219,7 +219,7 @@ export function RadarMap({ matches, userLocation, onMarkerClick, onSearchHere }:
 
         {/* Match markers */}
         {matches.map((match) => {
-          const slotsLeft = match.players_needed - match.players_confirmed
+          const slotsLeft = 4 - match.joined_count
           const icon = createMatchIcon(slotsLeft)
           return (
             <Marker
@@ -227,7 +227,7 @@ export function RadarMap({ matches, userLocation, onMarkerClick, onSearchHere }:
               position={[match.lat, match.lng]}
               icon={icon}
               eventHandlers={{ click: () => onMarkerClick(match) }}
-              aria-label={`Partido: ${match.title}`}
+              aria-label={`Partido de ${match.captain_name}`}
             />
           )
         })}

@@ -34,6 +34,22 @@ const initialState: AuthState = {
   error: null,
 }
 
+const ZERO_UUID = '00000000-0000-0000-0000-000000000000'
+
+async function enrichWithRegion(user: User): Promise<User> {
+  if (user.region_id && user.region_id !== ZERO_UUID) return user
+  try {
+    const res = await api.get<{ region_id?: string }>(`/players/${user.id}`)
+    const regionId = res.data.region_id
+    if (regionId && regionId !== ZERO_UUID) {
+      return { ...user, region_id: regionId }
+    }
+  } catch {
+    // self-view failed — keep base user
+  }
+  return user
+}
+
 export const useAuthStore = create<AuthState & AuthActions>()(
   persist(
     (set, get) => ({
@@ -50,7 +66,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         scheduleProactiveRefresh()
 
         const profile = await api.get<User>('/players/me')
-        set({ user: profile.data, isAuthenticated: true, error: null })
+        const enriched = await enrichWithRegion(profile.data)
+        set({ user: enriched, isAuthenticated: true, error: null })
       },
 
       register: async (data) => {
@@ -96,7 +113,8 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         try {
           await get().refresh()
           const profile = await api.get<User>('/players/me')
-          set({ user: profile.data, isAuthenticated: true, isInitializing: false })
+          const enriched = await enrichWithRegion(profile.data)
+          set({ user: enriched, isAuthenticated: true, isInitializing: false })
         } catch {
           get().logout()
           set({ isInitializing: false })

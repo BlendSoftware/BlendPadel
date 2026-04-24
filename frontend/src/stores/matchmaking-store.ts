@@ -96,7 +96,7 @@ export const useMatchmakingStore = create<MatchmakingState & MatchmakingActions>
     }
   },
 
-  respondToFlare: async (flareId, _partnerId) => {
+  respondToFlare: async (flareId: string) => {
     set({ isLoading: true, error: null })
     try {
       await api.post(`/matchmaking/flares/${flareId}/respond`)

@@ -7,13 +7,18 @@ interface AlertBannerProps {
   onAlertClick?: (alert: RadarAlert) => void
 }
 
+function minutesUntil(scheduledAt: string): number {
+  return Math.max(0, Math.round((new Date(scheduledAt).getTime() - Date.now()) / 60000))
+}
+
 export function AlertBanner({ alerts, onDismiss, onAlertClick }: AlertBannerProps) {
   if (alerts.length === 0) return null
 
-  // Show the most urgent alert (smallest minutes_until)
   const topAlert = alerts.reduce((prev, curr) =>
-    curr.minutes_until < prev.minutes_until ? curr : prev,
+    minutesUntil(curr.scheduled_at) < minutesUntil(prev.scheduled_at) ? curr : prev,
   )
+  const minsLeft = minutesUntil(topAlert.scheduled_at)
+  const title = `Partido de ${topAlert.captain_name}`
 
   return (
     <div
@@ -22,7 +27,6 @@ export function AlertBanner({ alerts, onDismiss, onAlertClick }: AlertBannerProp
       aria-live="polite"
     >
       <div className="flex items-start gap-2 p-3">
-        {/* Icon */}
         <div className="flex-shrink-0 mt-0.5">
           <AlertTriangle
             size={16}
@@ -31,38 +35,35 @@ export function AlertBanner({ alerts, onDismiss, onAlertClick }: AlertBannerProp
           />
         </div>
 
-        {/* Content */}
         <button
           className="flex-1 text-left min-h-0 focus-visible:outline-none"
           onClick={() => onAlertClick?.(topAlert)}
-          aria-label={`Partido urgente: ${topAlert.title}`}
+          aria-label={`Partido urgente: ${title}`}
         >
           <p className="text-xs font-bold text-rose-300 uppercase tracking-wider mb-0.5">
             Falta uno para cerrar!
           </p>
           <p className="text-sm font-semibold text-text-primary leading-snug">
-            {topAlert.title}
+            {title}
           </p>
           <div className="flex items-center gap-3 mt-1">
             <span className="flex items-center gap-1 text-xs text-rose-400">
               <Clock size={11} aria-hidden="true" />
-              En {topAlert.minutes_until} min
+              En {minsLeft} min
             </span>
             <span className="flex items-center gap-1 text-xs text-text-secondary">
               <MapPin size={11} aria-hidden="true" />
-              {topAlert.distance_km.toFixed(1)} km
+              {(topAlert.distance_meters / 1000).toFixed(1)} km
             </span>
           </div>
         </button>
 
-        {/* Count badge */}
         {alerts.length > 1 && (
           <span className="flex-shrink-0 bg-rose-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
             {alerts.length}
           </span>
         )}
 
-        {/* Dismiss */}
         {onDismiss && (
           <button
             onClick={onDismiss}

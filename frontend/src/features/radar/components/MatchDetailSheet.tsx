@@ -42,8 +42,10 @@ export function MatchDetailSheet({ match, onClose }: MatchDetailSheetProps) {
     }
   }, [match])
 
-  const slotsLeft = match ? match.players_needed - match.players_confirmed : 0
+  const MAX_PLAYERS = 4
+  const slotsLeft = match ? MAX_PLAYERS - match.joined_count : 0
   const isUrgent = slotsLeft === 1
+  const title = match ? `Partido de ${match.captain_name}` : ''
 
   return (
     <>
@@ -68,7 +70,7 @@ export function MatchDetailSheet({ match, onClose }: MatchDetailSheetProps) {
         ].join(' ')}
         role="dialog"
         aria-modal="true"
-        aria-label={match ? `Detalle del partido: ${match.title}` : 'Detalle del partido'}
+        aria-label={match ? `Detalle del partido: ${title}` : 'Detalle del partido'}
       >
         {match && (
           <>
@@ -91,7 +93,7 @@ export function MatchDetailSheet({ match, onClose }: MatchDetailSheetProps) {
               <div className="flex items-start gap-2 mb-4">
                 <div className="flex-1 min-w-0">
                   <h2 className="text-lg font-bold text-text-primary leading-tight">
-                    {match.title}
+                    {title}
                   </h2>
                   {isUrgent && (
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-rose-400 mt-0.5">
@@ -121,7 +123,7 @@ export function MatchDetailSheet({ match, onClose }: MatchDetailSheetProps) {
                   <div>
                     <p className="text-xs text-text-secondary">Distancia</p>
                     <p className="text-sm font-semibold text-text-primary">
-                      {match.distance_km.toFixed(1)} km
+                      {(match.distance_meters / 1000).toFixed(1)} km
                     </p>
                   </div>
                 </div>
@@ -132,7 +134,7 @@ export function MatchDetailSheet({ match, onClose }: MatchDetailSheetProps) {
                   <div>
                     <p className="text-xs text-text-secondary">Jugadores</p>
                     <p className="text-sm font-semibold text-text-primary">
-                      {match.players_confirmed}/{match.max_players}
+                      {match.joined_count}/{MAX_PLAYERS}
                       <span className="text-xs text-text-secondary ml-1">
                         ({slotsLeft} libre{slotsLeft !== 1 ? 's' : ''})
                       </span>
@@ -148,16 +150,10 @@ export function MatchDetailSheet({ match, onClose }: MatchDetailSheetProps) {
                   <div>
                     <p className="text-xs text-text-secondary">Promedio</p>
                     <p className="text-sm font-semibold text-text-primary">
-                      {formatELO(match.elo_avg)}
+                      {formatELO(match.avg_elo)}
                     </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Location */}
-              <div className="flex items-center gap-2 mb-5 text-sm text-text-secondary">
-                <MapPin size={14} aria-hidden="true" />
-                <span>{match.location_name}</span>
               </div>
 
               {/* CTA */}

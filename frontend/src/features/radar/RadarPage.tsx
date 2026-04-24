@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, type Variants } from 'framer-motion'
 import {
   MapPin,
   Navigation,
@@ -36,7 +36,7 @@ const ELO_MIN = 400
 const ELO_MAX = 2000
 
 // ─── Animation variants (mount-only, not per-item) ───────────────────────────
-const fadeUp = {
+const fadeUp: Variants = {
   hidden:  { opacity: 0, y: 24 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.32, ease: [0.25, 0.46, 0.45, 0.94] } },
 }

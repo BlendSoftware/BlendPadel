@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ArrowLeft, Camera, Upload, X, AlertCircle, ImagePlus } from 'lucide-react'
+import { ArrowLeft, Camera, Upload, X, AlertCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useProfileStore } from '@/stores/profile-store'
 import { useAuthStore } from '@/stores/auth-store'

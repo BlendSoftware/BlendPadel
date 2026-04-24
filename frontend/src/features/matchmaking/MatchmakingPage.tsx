@@ -191,7 +191,6 @@ export function MatchmakingPage() {
   const navigate      = useNavigate()
   const fetchFlares   = useMatchmakingStore((s) => s.fetchFlares)
   const fetchMyFlare  = useMatchmakingStore((s) => s.fetchMyFlare)
-  const isLoading     = useMatchmakingStore((s) => s.isLoading)
 
   const [mainTab, setMainTab]   = useState<MainTab>('matchmaking')
   const [refreshing, setRefreshing] = useState(false)

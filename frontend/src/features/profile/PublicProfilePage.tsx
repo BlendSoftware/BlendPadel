@@ -111,7 +111,7 @@ export function PublicProfilePage() {
         {/* Hero */}
         <Card>
           <div className="flex flex-col items-center gap-3 py-2">
-            <Avatar src={publicProfile.avatar_url} name={fullName} size="xl" />
+            <Avatar name={fullName} size="xl" />
 
             <div className="text-center">
               <p className="text-xl font-bold text-text-primary">{fullName}</p>
