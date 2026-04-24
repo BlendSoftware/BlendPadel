@@ -1,0 +1,200 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Inter', sans-serif;
+}
+
+:root {
+  --font-display: 'Anton', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --bg-obsidian: #040404;
+  --bg-carbon: #0c0c0c;
+  --bg-panel: rgb(18 18 18 / 0.92);
+  --bg-panel-soft: rgb(26 26 26 / 0.82);
+
+  --text-primary: #f5f5ef;
+  --text-secondary: #c6c6b8;
+  --text-muted: #8f8f84;
+
+  --accent-electric: #d7ff2d;
+  --accent-signal: #ffe066;
+  --accent-data: #0b0b08;
+  --accent-fluo: #d7ff2d;
+
+  --state-ok: #d7ff2d;
+  --state-warn: #ffd447;
+  --state-danger: #ff6464;
+
+  --color-padel-green: #d7ff2d;
+  --color-padel-green-dark: #c6ec24;
+  --color-bg-dark: #040404;
+  --color-bg-card: #101010;
+  --color-bg-input: #1a1a1a;
+  --color-text-primary: #f5f5ef;
+  --color-text-secondary: #c6c6b8;
+  --color-trust-high: #d7ff2d;
+  --color-trust-medium: #ffd447;
+  --color-trust-low: #ff6464;
+  --color-border: #2a2a2a;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at 16% 14%, rgb(215 255 45 / 0.12), transparent 31%),
+    radial-gradient(circle at 86% 9%, rgb(255 224 102 / 0.09), transparent 29%),
+    linear-gradient(150deg, var(--bg-obsidian) 0%, var(--bg-carbon) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-size: 16px;
+  line-height: 1.5;
+  cursor: default;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.18;
+  background-image:
+    radial-gradient(circle at 52% 48%, rgb(255 255 255 / 0.2) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 18% 78%, rgb(255 255 255 / 0.12) 0.6px, transparent 0.6px);
+  background-size: 3px 3px, 7px 7px;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.06;
+  background: linear-gradient(124deg, rgb(215 255 45 / 0.18), transparent, rgb(255 224 102 / 0.14));
+  mix-blend-mode: screen;
+}
+
+button,
+a,
+[role='button'] {
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+.display-text {
+  font-family: var(--font-display);
+  letter-spacing: 0.03em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+p,
+span,
+label,
+input,
+textarea,
+select {
+  font-family: var(--font-body);
+}
+
+/* ─── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes velvetSweep {
+  from { transform: translateX(-130%); }
+  to   { transform: translateX(130%); }
+}
+
+/* Page-level fade-in for route transitions */
+.page-enter {
+  animation: fadeIn 200ms ease-out both;
+}
+
+.glass-frame {
+  position: relative;
+  border: 1px solid rgb(215 255 45 / 0.22);
+  background: var(--bg-panel-soft);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 0.4), inset 0 1px 0 rgb(255 255 255 / 0.08);
+}
+
+.glass-frame::after {
+  content: '';
+  position: absolute;
+  inset: -20% 0;
+  width: 35%;
+  transform: translateX(-140%);
+  background: linear-gradient(90deg, transparent, rgb(215 255 45 / 0.24), transparent);
+  animation: velvetSweep 9s linear infinite;
+  pointer-events: none;
+}
+
+/* ─── Scrollbar — ultra-thin premium ─────────────────────────────────────── */
+::-webkit-scrollbar         { width: 4px; height: 4px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   {
+  background: rgba(215, 255, 45, 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(215, 255, 45, 0.55); }
+
+/* ─── Text selection ─────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(215, 255, 45, 0.25);
+  color: #fff;
+}
+
+/* ─── Autofill override — prevents blue browser bg ──────────────────────── */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #111 inset !important;
+  -webkit-text-fill-color: #f5f5ef !important;
+  caret-color: #f5f5ef;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* ─── Focus ring global (accesibilidad) ──────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid rgba(215, 255, 45, 0.6);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible),
+input:focus:not(:focus-visible) {
+  outline: none;
+}

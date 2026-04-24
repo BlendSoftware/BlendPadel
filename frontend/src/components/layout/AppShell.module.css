@@ -1,0 +1,213 @@
+﻿.canvas {
+  position: relative;
+  min-height: 100dvh;
+  background-color: var(--bg-obsidian);
+  overflow-x: hidden;
+}
+
+/* ─── Immersive Backgrounds ────────────────────────────────────────────────── */
+
+@keyframes drift {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(5vw, 10vh) scale(1.1); }
+  66% { transform: translate(-5vw, 5vh) scale(0.9); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes driftOp {
+  0% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-8vw, -5vh) scale(1.2); }
+  66% { transform: translate(10vw, -12vh) scale(0.85); }
+  100% { transform: translate(0, 0) scale(1); }
+}
+
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.ambientGlowPrimary {
+  position: fixed;
+  top: -20%;
+  left: -10%;
+  width: 70vw;
+  height: 70vw;
+  background: radial-gradient(circle, rgba(215, 255, 45, 0.08) 0%, transparent 60%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(90px);
+  animation: drift 25s ease-in-out infinite;
+}
+
+.ambientGlowSecondary {
+  position: fixed;
+  bottom: -10%;
+  right: -20%;
+  width: 80vw;
+  height: 80vw;
+  background: radial-gradient(circle, rgba(16, 255, 204, 0.05) 0%, transparent 60%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(100px);
+  animation: driftOp 30s ease-in-out infinite;
+}
+
+.canvas::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background-image: 
+    radial-gradient(rgba(255, 255, 255, 0.15) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(215, 255, 45, 0.03) 1px, transparent 1px);
+  background-size: 32px 32px, 100% 4px;
+  background-position: center center, center 0;
+  opacity: 0.6;
+  mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 30%, rgba(0,0,0,0.1) 100%);
+  -webkit-mask-image: radial-gradient(circle at center, rgba(0,0,0,1) 30%, rgba(0,0,0,0.1) 100%);
+}
+
+.canvas::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 20%;
+  background: linear-gradient(to bottom, rgba(215,255,45,0.03) 0%, transparent 100%);
+  z-index: 2;
+  pointer-events: none;
+  animation: scanline 8s linear infinite;
+}
+
+/* ─── Viewport (The Feed) ──────────────────────────────────────────────────── */
+
+.viewport {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 40px 20px 140px; 
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.feedWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  flex: 1;
+}
+
+/* ─── Floating Pill Navigation ─────────────────────────────────────────────── */
+
+.pillNav {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  
+  background: rgba(12, 12, 12, 0.55);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.pillItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 64px;
+  height: 56px;
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+  border-radius: 20px;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.iconWrapper {
+  position: absolute;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pillLabel {
+  font-family: var(--font-body);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  opacity: 0;
+  transform: translateY(8px) scale(0.9);
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: absolute;
+  bottom: 6px;
+}
+
+.pillItem:hover {
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pillItemActive {
+  color: var(--accent-fluo);
+  background: rgba(215, 255, 45, 0.12);
+  box-shadow: inset 0 0 20px rgba(215, 255, 45, 0.15), 0 10px 20px -5px rgba(215, 255, 45, 0.2);
+}
+
+.pillItemActive .iconWrapper {
+  transform: translateY(-8px);
+}
+
+.pillItemActive .pillLabel {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* ─── DESKTOP (Widescreen Asymmetric Dashboard) ────────────────────────────── */
+
+@media (min-width: 1024px) {
+  .viewport {
+    max-width: 1920px; /* Destroy the phone limit */
+    padding: 32px 40px 32px 140px; /* Space on left for Dock */
+  }
+
+  .pillNav {
+    /* Transform to Vertical Glass Dock */
+    left: 32px;
+    top: 50%;
+    bottom: auto;
+    transform: translateY(-50%);
+    flex-direction: column;
+    padding: 16px 12px;
+    gap: 12px;
+    border-radius: 40px;
+    background: rgba(12, 12, 12, 0.35); /* More transparent */
+  }
+
+  .pillItem {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+  }
+
+  .pillItemActive {
+    border-radius: 20px; /* Morphs beautifully on active */
+  }
+}
+

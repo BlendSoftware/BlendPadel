@@ -1,0 +1,196 @@
+/* ── FlareCard — Premium ──────────────────────────────────────────────────── */
+
+@keyframes cardEnter {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.card {
+  background: rgba(14, 14, 14, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+  position: relative;
+  animation: cardEnter 0.3s ease both;
+  transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+  will-change: transform;
+  contain: layout style paint;
+}
+
+.card:hover {
+  border-color: rgba(215, 255, 45, 0.18);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Accent strip */
+.accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--accent-fluo);
+  border-radius: 0 4px 4px 0;
+  opacity: 0.6;
+}
+
+/* ── Player row ── */
+.playerRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.playerInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.playerNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.playerName {
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trustBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.trustHigh   { background: rgba(215,255,45,0.12); color: #d7ff2d; border: 1px solid rgba(215,255,45,0.25); }
+.trustMedium { background: rgba(255,212,71,0.1);  color: #ffd447; border: 1px solid rgba(255,212,71,0.2); }
+.trustLow    { background: rgba(255,100,100,0.1); color: #ff8080; border: 1px solid rgba(255,100,100,0.2); }
+
+.typeBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 700;
+}
+
+.typeFemale { background: rgba(236,72,153,0.12); color: #f472b6; border: 1px solid rgba(236,72,153,0.25); }
+.typeMixed  { background: rgba(139,92,246,0.12); color: #a78bfa; border: 1px solid rgba(139,92,246,0.25); }
+
+/* ELO display */
+.eloBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.eloNum {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: normal;
+  text-transform: uppercase;
+  color: var(--accent-fluo);
+  line-height: 1;
+}
+
+.eloCategory {
+  font-family: var(--font-body);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(215,255,45,0.5);
+}
+
+/* ── Details row ── */
+.details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.detailChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-family: var(--font-body);
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.45);
+}
+
+.detailChipIcon { color: rgba(255,255,255,0.25); flex-shrink: 0; }
+
+/* ── Message ── */
+.message {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  color: rgba(255,255,255,0.5);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin: 0;
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 10px;
+  border-left: 2px solid rgba(255,255,255,0.08);
+}
+
+/* ── CTA ── */
+.cta {
+  width: 100%;
+  padding: 13px 16px;
+  background: rgba(215, 255, 45, 0.09);
+  border: 1px solid rgba(215, 255, 45, 0.24);
+  border-radius: 14px;
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent-fluo);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.15s ease;
+  will-change: transform;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.cta:hover {
+  background: rgba(215, 255, 45, 0.15);
+  border-color: rgba(215, 255, 45, 0.4);
+  transform: translateY(-1px);
+}
+.cta:active { transform: translateY(0); }
